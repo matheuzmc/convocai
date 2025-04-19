@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { GroupCard } from "@/components/cards/GroupEventCards";
 import { EventCard } from "@/components/cards/GroupEventCards";
 import { NotificationCard } from "@/components/cards/NotificationMemberCards";
-import { getCurrentUser, getUserGroups, getGroupEvents, getUserNotifications } from "@/lib/mockData";
+import { getCurrentUser, getUserGroups, getGroupEvents, getUserNotifications, Event } from "@/lib/mockData";
 import { Plus, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -17,7 +17,7 @@ export default function DashboardPage() {
   const userGroups = getUserGroups(currentUser.id);
   
   // Obter eventos dos grupos do usuário
-  let allEvents = [];
+  let allEvents: Event[] = [];
   userGroups.forEach(group => {
     const groupEvents = getGroupEvents(group.id);
     allEvents = [...allEvents, ...groupEvents];

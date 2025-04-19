@@ -11,7 +11,7 @@ interface NotificationCardProps {
   id: string;
   title: string;
   message: string;
-  type: 'event' | 'group' | 'member' | 'system';
+  type: 'event' | 'group' | 'member' | 'system' | 'invite';
   isRead: boolean;
   createdAt: string;
 }
@@ -50,6 +50,8 @@ export function NotificationCard({
       case 'group':
         return <User className="h-5 w-5 text-primary" />;
       case 'member':
+        return <User className="h-5 w-5 text-primary" />;
+      case 'invite':
         return <User className="h-5 w-5 text-primary" />;
       case 'system':
         return <Bell className="h-5 w-5 text-primary" />;
