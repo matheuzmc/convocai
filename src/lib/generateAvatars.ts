@@ -2,9 +2,6 @@ import { faker } from '@faker-js/faker/locale/pt_BR';
 import fs from 'fs';
 import path from 'path';
 
-// Configurar o faker para português do Brasil
-faker.locale = 'pt_BR';
-
 // Função para gerar URLs de avatares
 export function generateAvatarUrls(count: number = 5): string[] {
   const avatars: string[] = [];
