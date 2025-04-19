@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Calendar, Clock, MapPin, Repeat, UploadCloud } from "lucide-react";
 
-interface EventFormData {
+export interface EventFormData {
   title: string;
   description: string;
   date: string;
@@ -20,7 +20,7 @@ interface EventFormData {
   notifyBefore: string;
 }
 
-interface GroupFormData {
+export interface GroupFormData {
   name: string;
   description: string;
   sport: string;
@@ -47,12 +47,12 @@ export function EventForm({ onSubmit, initialData, isEdit = false }: EventFormPr
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
-    const data = {
-      title: formData.get('title'),
-      description: formData.get('description'),
-      date: formData.get('date'),
-      time: formData.get('time'),
-      location: formData.get('location'),
+    const data: EventFormData = {
+      title: String(formData.get('title') || ''),
+      description: String(formData.get('description') || ''),
+      date: String(formData.get('date') || ''),
+      time: String(formData.get('time') || ''),
+      location: String(formData.get('location') || ''),
       isPeriodic,
       frequency: isPeriodic ? frequency : null,
       notifyBefore,
@@ -194,11 +194,11 @@ export function GroupForm({ onSubmit, initialData, isEdit = false }: GroupFormPr
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
-    const data = {
-      name: formData.get('name'),
-      description: formData.get('description'),
-      sport: formData.get('sport'),
-      image: formData.get('image') || 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?auto=format&fit=crop&w=1000&q=80',
+    const data: GroupFormData = {
+      name: String(formData.get('name') || ''),
+      description: String(formData.get('description') || ''),
+      sport: String(formData.get('sport') || ''),
+      image: String(formData.get('image') || 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?auto=format&fit=crop&w=1000&q=80'),
     };
     onSubmit(data);
   };

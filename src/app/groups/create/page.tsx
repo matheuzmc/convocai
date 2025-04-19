@@ -4,19 +4,19 @@ import React from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
 import { BottomNav } from "@/components/navigation/BottomNav";
-import { GroupForm } from "@/components/forms/GroupEventForms";
-import { getCurrentUser, canCreateGroup } from "@/lib/mockData";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { GroupForm, GroupFormData } from "@/components/forms/GroupEventForms";
+import { canCreateGroup, getCurrentUser } from "@/lib/mockData";
 import { Crown } from "lucide-react";
+import Link from "next/link";
 
 export default function CreateGroupPage() {
   // Simulando dados do usuário logado
   const currentUser = getCurrentUser();
   const canCreate = canCreateGroup(currentUser.id);
 
-  const handleSubmit = (data: Record<string, unknown>) => {
+  const handleSubmit = (data: GroupFormData) => {
     // Aqui seria implementada a lógica para criar um novo grupo
     console.log("Criando grupo:", data);
   };

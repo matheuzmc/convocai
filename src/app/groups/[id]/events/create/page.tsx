@@ -4,7 +4,7 @@ import React from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
 import { BottomNav } from "@/components/navigation/BottomNav";
-import { EventForm } from "@/components/forms/GroupEventForms";
+import { EventForm, EventFormData } from "@/components/forms/GroupEventForms";
 import { getGroupById, getCurrentUser } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -20,7 +20,7 @@ export default function CreateEventPage() {
   const currentUser = getCurrentUser();
   const isAdmin = group?.admins.includes(currentUser.id) || false;
 
-  const handleSubmit = (data: Record<string, unknown>) => {
+  const handleSubmit = (data: EventFormData) => {
     // Aqui seria implementada a lógica para criar um novo evento
     console.log("Criando evento:", data);
   };

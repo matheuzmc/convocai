@@ -4,22 +4,11 @@ import React from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
 import { BottomNav } from "@/components/navigation/BottomNav";
-import { EventForm } from "@/components/forms/GroupEventForms";
+import { EventForm, EventFormData } from "@/components/forms/GroupEventForms";
 import { getGroupById, getEventById, getCurrentUser } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-
-interface EventFormData {
-  title: string;
-  description: string;
-  date: string;
-  time: string;
-  location: string;
-  isPeriodic: boolean;
-  frequency?: 'weekly' | 'biweekly' | 'monthly' | null;
-  notifyBefore: string;
-}
 
 export default function EditEventPage() {
   const router = useRouter();
