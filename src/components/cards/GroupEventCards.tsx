@@ -68,6 +68,10 @@ export function EventCard({
             )}
           </div>
           
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {description}
+          </p>
+          
           {groupName && (
             <div className="flex items-center text-sm text-muted-foreground">
               <Users className="h-4 w-4 mr-1" />
