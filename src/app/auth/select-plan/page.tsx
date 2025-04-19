@@ -3,7 +3,7 @@ import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import Link from "next/link";
-import { Check, Users, Calendar, Bell } from "lucide-react";
+import { Check } from "lucide-react";
 
 export default function SelectPlanPage() {
   return (

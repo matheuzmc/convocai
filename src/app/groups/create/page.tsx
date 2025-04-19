@@ -16,7 +16,7 @@ export default function CreateGroupPage() {
   const currentUser = getCurrentUser();
   const canCreate = canCreateGroup(currentUser.id);
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = (data: Record<string, unknown>) => {
     // Aqui seria implementada a lógica para criar um novo grupo
     console.log("Criando grupo:", data);
   };

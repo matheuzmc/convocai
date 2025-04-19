@@ -15,6 +15,7 @@ import { getGroupById, isGroupAdmin, getCurrentUser } from "@/lib/mockData";
 import { Trash2, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import Image from "next/image";
 
 export default function GroupSettingsPage() {
   // Obter o ID do grupo da URL
@@ -118,11 +119,13 @@ export default function GroupSettingsPage() {
             <div className="space-y-2">
               <Label htmlFor="image">Imagem do Grupo</Label>
               <div className="flex items-center gap-4">
-                <div className="h-20 w-20 rounded-md border border-input flex items-center justify-center overflow-hidden">
-                  <img
+                <div className="h-20 w-20 rounded-md border border-input flex items-center justify-center overflow-hidden relative">
+                  <Image
                     src={group.image}
                     alt="Imagem do grupo"
-                    className="h-full w-full object-cover"
+                    className="object-cover"
+                    fill
+                    sizes="80px"
                   />
                 </div>
                 <Button variant="outline" size="sm">

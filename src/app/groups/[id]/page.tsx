@@ -5,14 +5,14 @@ import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { Button } from "@/components/ui/button";
-import { GroupTabs } from "@/components/ui-elements/DialogsAndTabs";
-import { InviteDialog } from "@/components/ui-elements/DialogsAndTabs";
 import { EventCard } from "@/components/cards/GroupEventCards";
 import { MemberCard } from "@/components/cards/NotificationMemberCards";
 import { getGroupById, getGroupEvents, getGroupMembers, isGroupAdmin, getCurrentUser } from "@/lib/mockData";
 import { Calendar, Users, Settings, Share2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import Image from "next/image";
+import { GroupTabs, InviteDialog } from "@/components/ui-elements/DialogsAndTabs";
 
 export default function GroupDetailsPage() {
   // Obter o ID do grupo da URL
@@ -62,10 +62,12 @@ export default function GroupDetailsPage() {
     >
       <div className="space-y-6">
         <div className="h-40 -mx-4 overflow-hidden relative">
-          <img
+          <Image
             src={group.image}
             alt={group.name}
             className="w-full h-full object-cover"
+            fill
+            sizes="100vw"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
           <div className="absolute bottom-0 left-0 p-4 w-full">

@@ -2,8 +2,6 @@ import React from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
 import { BottomNav } from "@/components/navigation/BottomNav";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { NotificationCard } from "@/components/cards/NotificationMemberCards";
 import { getCurrentUser, getUserNotifications } from "@/lib/mockData";
 import { Bell } from "lucide-react";

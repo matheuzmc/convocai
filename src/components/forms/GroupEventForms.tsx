@@ -7,11 +7,35 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Calendar, Clock, MapPin, Users, Repeat, UploadCloud } from "lucide-react";
+import { Calendar, Clock, MapPin, Repeat, UploadCloud } from "lucide-react";
+
+interface EventFormData {
+  title: string;
+  description: string;
+  date: string;
+  time: string;
+  location: string;
+  isPeriodic: boolean;
+  frequency: string | null;
+  notifyBefore: string;
+}
+
+interface GroupFormData {
+  name: string;
+  description: string;
+  sport: string;
+  image: string;
+}
 
 interface EventFormProps {
-  onSubmit: (data: any) => void;
-  initialData?: any;
+  onSubmit: (data: EventFormData) => void;
+  initialData?: Partial<EventFormData>;
+  isEdit?: boolean;
+}
+
+interface GroupFormProps {
+  onSubmit: (data: GroupFormData) => void;
+  initialData?: Partial<GroupFormData>;
   isEdit?: boolean;
 }
 
@@ -166,11 +190,7 @@ export function EventForm({ onSubmit, initialData, isEdit = false }: EventFormPr
   );
 }
 
-export function GroupForm({ onSubmit, initialData, isEdit = false }: {
-  onSubmit: (data: any) => void;
-  initialData?: any;
-  isEdit?: boolean;
-}) {
+export function GroupForm({ onSubmit, initialData, isEdit = false }: GroupFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);

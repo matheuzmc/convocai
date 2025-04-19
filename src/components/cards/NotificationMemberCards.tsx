@@ -25,7 +25,6 @@ interface MemberCardProps {
 }
 
 export function NotificationCard({
-  id: _id,
   title,
   message,
   type,

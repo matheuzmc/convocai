@@ -1,11 +1,12 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
-import { Calendar, Clock, MapPin, Users, Check, X } from "lucide-react";
+import { Calendar, Clock, MapPin, Users } from "lucide-react";
+import Image from "next/image";
 
 interface EventCardProps {
   id: string;
@@ -120,10 +121,12 @@ export function GroupCard({
     <Card className="overflow-hidden">
       <CardContent className="p-0">
         <div className="relative h-32 w-full">
-          <img
+          <Image
             src={image}
             alt={name}
-            className="h-full w-full object-cover"
+            className="object-cover"
+            fill
+            sizes="(max-width: 768px) 100vw, 350px"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent" />
           <div className="absolute bottom-2 left-3 right-3">
