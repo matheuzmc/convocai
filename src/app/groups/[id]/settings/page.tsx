@@ -126,6 +126,8 @@ export default function GroupSettingsPage() {
                     className="object-cover"
                     fill
                     sizes="80px"
+                    blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZTZlNmU2Ii8+PC9zdmc+"
+                    placeholder="blur"
                   />
                 </div>
                 <Button variant="outline" size="sm">

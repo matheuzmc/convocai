@@ -1,3 +1,5 @@
+import { getSportImageUrl } from './generateImages';
+
 // Tipos de dados
 export interface User {
   id: string;
@@ -146,7 +148,7 @@ export const groups: Group[] = [
     name: 'Futebol dos Amigos',
     description: 'Grupo para organizar partidas de futebol semanais entre amigos',
     sport: 'futebol',
-    image: 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
+    image: getSportImageUrl('futebol'),
     createdBy: 'user1',
     admins: ['user1'],
     members: ['user1', 'user2', 'user3'],
@@ -158,7 +160,7 @@ export const groups: Group[] = [
     name: 'Basquete da Quadra Central',
     description: 'Grupo para jogos de basquete na quadra do parque central',
     sport: 'basquete',
-    image: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
+    image: getSportImageUrl('basquete'),
     createdBy: 'user4',
     admins: ['user4'],
     members: ['user1', 'user3', 'user4'],
@@ -170,7 +172,7 @@ export const groups: Group[] = [
     name: 'Corrida Matinal',
     description: 'Grupo para corridas matinais no parque da cidade',
     sport: 'corrida',
-    image: 'https://images.unsplash.com/photo-1571008887538-b36bb32f4571?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
+    image: getSportImageUrl('corrida'),
     createdBy: 'user1',
     admins: ['user1', 'user5'],
     members: ['user1', 'user5'],
@@ -182,7 +184,7 @@ export const groups: Group[] = [
     name: 'Vôlei de Praia',
     description: 'Grupo para jogar vôlei de praia nos finais de semana',
     sport: 'vôlei',
-    image: 'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
+    image: getSportImageUrl('vôlei'),
     createdBy: 'user2',
     admins: ['user2'],
     members: ['user2'],
@@ -194,7 +196,7 @@ export const groups: Group[] = [
     name: 'Ciclismo Urbano',
     description: 'Grupo para passeios de bicicleta pela cidade',
     sport: 'ciclismo',
-    image: 'https://images.unsplash.com/photo-1541625602330-2277a4c46182?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
+    image: getSportImageUrl('ciclismo'),
     createdBy: 'user4',
     admins: ['user4'],
     members: ['user4', 'user5'],
