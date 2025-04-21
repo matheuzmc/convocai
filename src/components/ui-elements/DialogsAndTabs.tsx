@@ -5,7 +5,35 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, Share2 } from "lucide-react";
+import { Copy, Share2, Calendar, History } from "lucide-react";
+import Link from "next/link";
+import { EventCard } from "@/components/cards/GroupEventCards";
+import { MemberCard } from "@/components/cards/NotificationMemberCards";
+import { getGroupById } from "@/lib/mockData";
+
+// Interfaces para tipagem
+interface Attendee {
+  userId: string;
+  status: 'confirmed' | 'pending' | 'declined';
+}
+
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  date: string;
+  time: string;
+  attendees: Attendee[];
+  groupId: string;
+}
+
+interface Member {
+  id: string;
+  name: string;
+  avatar: string;
+  isAdmin?: boolean;
+}
 
 interface InviteDialogProps {
   open: boolean;
@@ -24,7 +52,7 @@ export function InviteDialog({ open, onOpenChange, groupName, inviteLink }: Invi
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+        <DialogHeader className="pt-5">
           <DialogTitle>Convidar para {groupName}</DialogTitle>
           <DialogDescription>
             Compartilhe o link abaixo para convidar pessoas para o seu grupo.
@@ -36,6 +64,7 @@ export function InviteDialog({ open, onOpenChange, groupName, inviteLink }: Invi
               value={inviteLink}
               readOnly
               className="w-full"
+              onFocus={(e) => e.target.blur()}
             />
           </div>
           <Button size="icon" onClick={copyToClipboard}>
@@ -140,45 +169,211 @@ export function EventDetailsTabs() {
   );
 }
 
-export function GroupTabs() {
+export function GroupTabs({ 
+  events = [], 
+  members = [], 
+  groupId = "", 
+  isAdmin = false
+}: { 
+  events?: Event[], 
+  members?: Member[], 
+  groupId?: string,
+  isAdmin?: boolean
+}) {
+  const [historyDialogOpen, setHistoryDialogOpen] = React.useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = React.useState(false);
+  
+  // Filtrar eventos por data
+  const today = new Date();
+  const upcomingEvents = events
+    .filter(event => {
+      const eventDate = new Date(`${event.date}T${event.time}`);
+      return eventDate >= today;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(`${a.date}T${a.time}`);
+      const dateB = new Date(`${b.date}T${b.time}`);
+      return dateA.getTime() - dateB.getTime();
+    });
+    
+  const pastEvents = events
+    .filter(event => {
+      const eventDate = new Date(`${event.date}T${event.time}`);
+      return eventDate < today;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(`${a.date}T${a.time}`);
+      const dateB = new Date(`${b.date}T${b.time}`);
+      return dateB.getTime() - dateA.getTime(); // Mais recentes primeiro
+    });
+
   return (
-    <Tabs defaultValue="about" className="w-full">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="about">Sobre</TabsTrigger>
-        <TabsTrigger value="events">Eventos</TabsTrigger>
-        <TabsTrigger value="members">Membros</TabsTrigger>
-      </TabsList>
-      
-      <TabsContent value="about" className="mt-4 space-y-4">
-        <div className="space-y-2">
-          <h3 className="text-lg font-medium">Descrição</h3>
-          <p className="text-muted-foreground text-sm">
-            Este grupo foi criado para reunir pessoas que compartilham o interesse pelo esporte e desejam participar de atividades regulares.
-          </p>
-        </div>
+    <>
+      <Tabs defaultValue="events" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="events">Eventos</TabsTrigger>
+          <TabsTrigger value="about">Sobre</TabsTrigger>
+          <TabsTrigger value="members">Membros</TabsTrigger>
+        </TabsList>
         
-        <div className="space-y-2">
-          <h3 className="text-lg font-medium">Regras</h3>
-          <ul className="text-muted-foreground text-sm space-y-1 list-disc pl-5">
-            <li>Respeite todos os membros</li>
-            <li>Confirme presença com antecedência</li>
-            <li>Chegue no horário marcado</li>
-            <li>Avise se não puder comparecer</li>
-          </ul>
-        </div>
-      </TabsContent>
-      
-      <TabsContent value="events" className="mt-4">
-        <p className="text-center py-6 text-muted-foreground">
-          Lista de eventos será exibida aqui
-        </p>
-      </TabsContent>
-      
-      <TabsContent value="members" className="mt-4">
-        <p className="text-center py-6 text-muted-foreground">
-          Lista de membros será exibida aqui
-        </p>
-      </TabsContent>
-    </Tabs>
+        <TabsContent value="about" className="mt-4 space-y-4">
+          <div className="space-y-2">
+            <h3 className="text-lg font-medium">Descrição</h3>
+            <p className="text-muted-foreground text-sm">
+              Este grupo foi criado para reunir pessoas que compartilham o interesse pelo esporte e desejam participar de atividades regulares.
+            </p>
+          </div>
+          
+          <div className="space-y-2">
+            <h3 className="text-lg font-medium">Regras</h3>
+            <ul className="text-muted-foreground text-sm space-y-1 list-disc pl-5">
+              <li>Respeite todos os membros</li>
+              <li>Confirme presença com antecedência</li>
+              <li>Chegue no horário marcado</li>
+              <li>Avise se não puder comparecer</li>
+            </ul>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="events" className="mt-4 space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-medium">Próximos Eventos</h3>
+              {pastEvents.length > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full" 
+                  onClick={() => setHistoryDialogOpen(true)}
+                  title="Ver histórico de eventos"
+                >
+                  <History className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              )}
+            </div>
+            
+            {isAdmin && groupId && (
+              <Button size="sm" asChild>
+                <Link href={`/groups/${groupId}/events/create`}>
+                  <Calendar className="h-4 w-4 mr-1" /> Novo Evento
+                </Link>
+              </Button>
+            )}
+          </div>
+
+          {upcomingEvents.length === 0 ? (
+            <p className="text-center py-6 text-muted-foreground">
+              Nenhum evento agendado para este grupo.
+            </p>
+          ) : (
+            <div className="grid gap-4 mt-2">
+              {upcomingEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  id={event.id}
+                  title={event.title}
+                  description={event.description}
+                  location={event.location}
+                  date={event.date}
+                  time={event.time}
+                  attendeeCount={event.attendees.filter((a: Attendee) => a.status === 'confirmed').length}
+                  isPast={false}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="members" className="mt-4 space-y-4">
+          <div className="grid gap-2">
+            {members.length === 0 ? (
+              <p className="text-center py-6 text-muted-foreground">
+                Nenhum membro encontrado neste grupo.
+              </p>
+            ) : (
+              <>
+                <div className="pb-2">
+                  <h3 className="text-sm font-medium text-muted-foreground">Administradores</h3>
+                </div>
+                
+                {members
+                  .filter(member => member.isAdmin)
+                  .map((member) => (
+                    <MemberCard
+                      key={member.id}
+                      id={member.id}
+                      name={member.name}
+                      avatar={member.avatar}
+                      isAdmin={true}
+                      groupId={groupId}
+                    />
+                  ))}
+                
+                <div className="pt-4 pb-2">
+                  <h3 className="text-sm font-medium text-muted-foreground">Membros</h3>
+                </div>
+                
+                {members
+                  .filter(member => !member.isAdmin)
+                  .map((member) => (
+                    <MemberCard
+                      key={member.id}
+                      id={member.id}
+                      name={member.name}
+                      avatar={member.avatar}
+                      isAdmin={false}
+                      groupId={groupId}
+                    />
+                  ))}
+              </>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader className="pt-5">
+            <DialogTitle>Histórico de Eventos</DialogTitle>
+            <DialogDescription>
+              Eventos anteriores realizados por este grupo
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-2">
+            {pastEvents.length === 0 ? (
+              <p className="text-center py-4 text-muted-foreground">
+                Nenhum evento passado para este grupo.
+              </p>
+            ) : (
+              <div className="grid gap-4">
+                {pastEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    id={event.id}
+                    title={event.title}
+                    description={event.description}
+                    location={event.location}
+                    date={event.date}
+                    time={event.time}
+                    attendeeCount={event.attendees.filter((a: Attendee) => a.status === 'confirmed').length}
+                    isPast={true}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {groupId && (
+        <InviteDialog
+          open={inviteDialogOpen}
+          onOpenChange={setInviteDialogOpen}
+          groupName={getGroupById(groupId)?.name || "Grupo"}
+          inviteLink={`https://sportsgroupapp.com/invite/${groupId}`}
+        />
+      )}
+    </>
   );
 }

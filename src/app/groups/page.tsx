@@ -19,15 +19,6 @@ export default function GroupsListPage() {
       footer={<BottomNav />}
     >
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Seus Grupos</h2>
-          <Button size="sm" asChild>
-            <Link href="/groups/create">
-              <Plus className="h-4 w-4 mr-1" /> Novo Grupo
-            </Link>
-          </Button>
-        </div>
-
         {userGroups.length === 0 ? (
           <div className="text-center py-10 space-y-4">
             <p className="text-muted-foreground">
@@ -54,6 +45,19 @@ export default function GroupsListPage() {
             ))}
           </div>
         )}
+      </div>
+      
+      {/* Botão flutuante */}
+      <div className="fixed right-6 bottom-20">
+        <Button 
+          size="icon" 
+          className="h-14 w-14 rounded-full shadow-lg"
+          asChild
+        >
+          <Link href="/groups/create">
+            <Plus className="h-6 w-6" />
+          </Link>
+        </Button>
       </div>
     </MobileLayout>
   );

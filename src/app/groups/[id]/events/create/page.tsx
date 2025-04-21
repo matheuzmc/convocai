@@ -65,7 +65,7 @@ export default function CreateEventPage() {
 
   return (
     <MobileLayout
-      header={<TopNav title="Criar Evento" backHref={`/groups/${groupId}/events`} />}
+      header={<TopNav title="Criar Evento" backHref={`/groups/${groupId}`} />}
       footer={<BottomNav />}
     >
       <div className="space-y-6">

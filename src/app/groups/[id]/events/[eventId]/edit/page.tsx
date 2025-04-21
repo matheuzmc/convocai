@@ -54,7 +54,7 @@ export default function EditEventPage() {
   if (!event) {
     return (
       <MobileLayout
-        header={<TopNav title="Editar Evento" backHref={`/groups/${groupId}/events`} />}
+        header={<TopNav title="Editar Evento" backHref={`/groups/${groupId}`} />}
         footer={<BottomNav />}
       >
         <div className="flex flex-col items-center justify-center h-full py-10 text-center">
@@ -63,7 +63,7 @@ export default function EditEventPage() {
             O evento que você está tentando editar não existe ou foi removido.
           </p>
           <Button asChild>
-            <Link href={`/groups/${groupId}/events`}>Voltar para Eventos</Link>
+            <Link href={`/groups/${groupId}`}>Voltar para o Grupo</Link>
           </Button>
         </div>
       </MobileLayout>
