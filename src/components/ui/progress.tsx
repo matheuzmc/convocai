@@ -1,40 +1,42 @@
 "use client"
 
-import * as React from "react"
-import * as ProgressPrimitive from "@radix-ui/react-progress"
+import * as React from "react";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 
-import { cn } from "@/lib/utils"
+interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
+  value?: number;
+  max?: number;
+  className?: string;
+}
 
-function Progress({
+export function Progress({
+  value = 0,
+  max = 100,
   className,
-  value,
   ...props
-}: React.ComponentProps<typeof ProgressPrimitive.Root> & {
-  value?: number
-}) {
-  const [progress, setProgress] = React.useState(value || 0)
-
-  React.useEffect(() => {
-    const animatedValue = value || 0
-    setProgress(animatedValue)
-  }, [value])
+}: ProgressProps) {
+  const percentage = Math.min(Math.max(0, (value / max) * 100), 100);
 
   return (
-    <ProgressPrimitive.Root
-      data-slot="progress"
+    <div
       className={cn(
-        "relative h-2 w-full overflow-hidden rounded-full bg-secondary",
+        "relative h-4 w-full overflow-hidden rounded-full bg-secondary",
         className
       )}
       {...props}
     >
-      <ProgressPrimitive.Indicator
-        data-slot="indicator"
-        className="h-full w-full flex-1 bg-primary transition-all"
-        style={{ transform: `translateX(-${100 - (progress || 0)}%)` }}
+      <motion.div
+        initial={{ width: 0 }}
+        animate={{ width: `${percentage}%` }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="h-full bg-primary"
+        style={{
+          backgroundImage: "linear-gradient(to right, var(--primary), oklch(0.65 0.16 260))"
+        }}
       />
-    </ProgressPrimitive.Root>
-  )
+    </div>
+  );
 }
 
-export { Progress } 
+export default Progress;

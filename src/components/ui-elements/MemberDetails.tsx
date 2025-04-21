@@ -9,10 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { CalendarCheck, Medal, PhoneCall, ShieldCheck, Trophy, UserCog, UserX } from "lucide-react";
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { 
@@ -119,15 +116,14 @@ export function MemberDetails({
   
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
-      <DrawerContent className="max-h-[85vh] overflow-auto">
-        <div className="mx-auto w-full max-w-md">
-          <DrawerHeader className="pt-5">
-            <DrawerTitle className="text-xl text-center">Perfil do Membro</DrawerTitle>
-          </DrawerHeader>
-          
-          <div className="px-4">
-            <div className="flex flex-col items-center mt-2">
-              <Avatar className="h-24 w-24">
+      <DrawerContent className="h-[85vh]">
+        <div className="mx-auto w-full max-w-md h-full flex flex-col overflow-hidden">
+          <div className="sr-only">
+            <DrawerTitle>Perfil do Membro</DrawerTitle>
+          </div>
+          <div className="px-4 overflow-y-auto flex-1 scrollbar-hide">
+            <div className="flex flex-col items-center pt-6">
+              <Avatar className="h-20 w-20">
                 {user.avatar ? (
                   <AvatarImage 
                     src={user.avatar} 
@@ -141,7 +137,7 @@ export function MemberDetails({
                 )}
               </Avatar>
               
-              <h2 className="text-xl font-bold mt-3">{user.name}</h2>
+              <h2 className="text-xl font-bold mt-2">{user.name}</h2>
               
               <div className="flex items-center gap-2 mt-1">
                 {user.isAdmin && (
@@ -155,7 +151,7 @@ export function MemberDetails({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="mt-3 gap-1"
+                  className="mt-2 gap-2"
                   onClick={() => window.open(`https://wa.me/${user.whatsapp.replace(/\D/g, '')}`, '_blank')}
                 >
                   <PhoneCall className="h-4 w-4" /> WhatsApp
@@ -163,9 +159,9 @@ export function MemberDetails({
               )}
             </div>
             
-            <Separator className="my-4" />
+            <Separator className="my-3" />
             
-            <div className="space-y-4">
+            <div className="space-y-4 pb-4">
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground mb-2">Data de entrada no grupo</h3>
                 <p className="font-medium">{memberSince}</p>
@@ -198,56 +194,52 @@ export function MemberDetails({
               
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground mb-2">Conquistas e distintivos</h3>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2.5">
                   {consecutiveAttendance >= 3 && (
                     <Badge className="flex items-center gap-1 bg-amber-500">
-                      <Trophy className="h-3 w-3" /> Presença constante
+                      <Trophy className="h-3 w-3 mr-1.5" /> Presença constante
                     </Badge>
                   )}
                   
                   {isLongestMember && (
                     <Badge className="flex items-center gap-1 bg-blue-500">
-                      <Medal className="h-3 w-3" /> Membro mais antigo
+                      <Medal className="h-3 w-3 mr-1.5" /> Membro mais antigo
                     </Badge>
                   )}
                   
                   {attendanceRate >= 80 && (
                     <Badge className="flex items-center gap-1 bg-green-500">
-                      <CalendarCheck className="h-3 w-3" /> 80%+ de presença
+                      <CalendarCheck className="h-3 w-3 mr-1.5" /> 80%+ de presença
                     </Badge>
                   )}
                 </div>
               </div>
               
               {isAdmin && !user.isAdmin && userId !== currentUser.id && (
-                <div className="pt-2 mb-6">
+                <div className="pt-2">
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Ações administrativas</h3>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     <Button 
                       variant="outline" 
-                      className="w-full gap-1"
+                      className="w-full"
                       onClick={promoteMember}
                     >
-                      <UserCog className="h-4 w-4" /> Promover a admin
+                      <UserCog className="h-4 w-4 mr-1.5" />
+                      <span className="whitespace-nowrap text-sm">Tornar admin</span>
                     </Button>
                     <Button 
                       variant="destructive" 
-                      className="w-full gap-1"
+                      className="w-full"
                       onClick={removeMember}
                     >
-                      <UserX className="h-4 w-4" /> Remover do grupo
+                      <UserX className="h-4 w-4 mr-1.5" />
+                      <span className="whitespace-nowrap text-sm">Remover</span>
                     </Button>
                   </div>
                 </div>
               )}
             </div>
           </div>
-          
-          <DrawerFooter className="pt-2">
-            <DrawerClose asChild>
-              <Button variant="outline" className="w-full">Fechar</Button>
-            </DrawerClose>
-          </DrawerFooter>
         </div>
       </DrawerContent>
     </Drawer>

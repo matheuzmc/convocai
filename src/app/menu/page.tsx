@@ -38,7 +38,7 @@ export default function MenuPage() {
 
   return (
     <MobileLayout
-      header={<TopNav title="Menu" backHref="/dashboard" />}
+      header={<TopNav title="Menu" showNotifications user={currentUser} />}
       footer={<BottomNav />}
     >
       <div className="space-y-6">
