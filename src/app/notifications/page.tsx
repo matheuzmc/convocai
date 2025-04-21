@@ -13,7 +13,7 @@ export default function NotificationsPage() {
 
   return (
     <MobileLayout
-      header={<TopNav title="Notificações" backHref="/dashboard" />}
+      header={<TopNav title="Notificações" user={currentUser} />}
       footer={<BottomNav />}
     >
       <div className="space-y-6">
@@ -35,6 +35,7 @@ export default function NotificationsPage() {
                 type={notification.type}
                 isRead={notification.isRead}
                 createdAt={notification.createdAt}
+                relatedId={notification.relatedId}
               />
             ))}
           </div>

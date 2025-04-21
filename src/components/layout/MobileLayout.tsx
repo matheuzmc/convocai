@@ -1,41 +1,79 @@
-import React from "react";
-import { cn } from "@/lib/utils";
-import { Toaster } from "@/components/ui/sonner";
+"use client"
+
+import * as React from "react"
+import { motion } from "framer-motion"
+import { cn } from "@/lib/utils"
 
 interface MobileLayoutProps {
-  children: React.ReactNode;
-  header?: React.ReactNode;
-  footer?: React.ReactNode;
-  className?: string;
+  header?: React.ReactNode
+  footer?: React.ReactNode
+  children: React.ReactNode
+  className?: string
+  noTopPadding?: boolean
 }
 
 export function MobileLayout({
-  children,
   header,
   footer,
+  children,
   className,
+  noTopPadding = false,
 }: MobileLayoutProps) {
+  // Variantes de animação para o container principal
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { 
+        duration: 0.3,
+        when: "beforeChildren",
+        staggerChildren: 0.1
+      }
+    }
+  }
+
+  // Variantes de animação para os elementos filhos
+  const childVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { 
+        type: "spring", 
+        damping: 15 
+      }
+    }
+  }
+
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950">
-      {header && (
-        <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          {header}
-        </header>
-      )}
-      <main
+    <div className="flex flex-col min-h-screen bg-background">
+      {header && <header className="sticky top-0 z-10">{header}</header>}
+      
+      <motion.main
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
         className={cn(
-          "flex-1 container max-w-md mx-auto p-4 md:py-6 md:px-6",
+          "flex-1 overflow-auto",
+          noTopPadding ? "pt-0 px-4 pb-20" : "p-4 pb-20",
           className
         )}
       >
-        {children}
-      </main>
+        <motion.div 
+          variants={childVariants}
+          className="max-w-md mx-auto w-full"
+        >
+          {children}
+        </motion.div>
+      </motion.main>
+      
       {footer && (
-        <footer className="sticky bottom-0 z-40 w-full border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <footer className="fixed bottom-0 left-0 right-0 z-10">
           {footer}
         </footer>
       )}
-      <Toaster />
     </div>
-  );
+  )
 }
+
+export default MobileLayout

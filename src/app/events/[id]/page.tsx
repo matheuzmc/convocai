@@ -52,7 +52,7 @@ export default function EventDetailsPage() {
 
   return (
     <MobileLayout
-      header={<TopNav title="Detalhes do Evento" backHref={`/groups/${group.id}/events`} />}
+      header={<TopNav title="Detalhes do Evento" backHref={`/groups/${group.id}`} />}
       footer={<BottomNav />}
     >
       <div className="space-y-6">

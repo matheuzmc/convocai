@@ -5,10 +5,8 @@ import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { Button } from "@/components/ui/button";
-import { EventCard } from "@/components/cards/GroupEventCards";
-import { MemberCard } from "@/components/cards/NotificationMemberCards";
 import { getGroupById, getGroupEvents, getGroupMembers, isGroupAdmin, getCurrentUser } from "@/lib/mockData";
-import { Calendar, Users, Settings, Share2 } from "lucide-react";
+import { Users, Settings, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import Image from "next/image";
@@ -59,6 +57,7 @@ export default function GroupDetailsPage() {
         />
       }
       footer={<BottomNav />}
+      noTopPadding={true}
     >
       <div className="space-y-6">
         <div className="h-40 -mx-4 overflow-hidden relative">
@@ -100,84 +99,20 @@ export default function GroupDetailsPage() {
               </Button>
             )}
             <Button variant="outline" size="icon" onClick={() => setInviteDialogOpen(true)}>
-              <Share2 className="h-4 w-4" />
+              <UserPlus className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        <GroupTabs />
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">Próximos Eventos</h3>
-            {isAdmin && (
-              <Button size="sm" asChild>
-                <Link href={`/groups/${groupId}/events/create`}>
-                  <Calendar className="h-4 w-4 mr-1" /> Novo Evento
-                </Link>
-              </Button>
-            )}
-          </div>
-
-          {events.length === 0 ? (
-            <p className="text-center py-6 text-muted-foreground">
-              Nenhum evento agendado para este grupo.
-            </p>
-          ) : (
-            <div className="grid gap-4">
-              {events.slice(0, 3).map((event) => (
-                <EventCard
-                  key={event.id}
-                  id={event.id}
-                  title={event.title}
-                  description={event.description}
-                  location={event.location}
-                  date={event.date}
-                  time={event.time}
-                  attendeeCount={event.attendees.filter(a => a.status === 'confirmed').length}
-                />
-              ))}
-              {events.length > 3 && (
-                <Button variant="outline" asChild>
-                  <Link href={`/groups/${groupId}/events`}>
-                    Ver todos os eventos
-                  </Link>
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">Membros</h3>
-            {isAdmin && (
-              <Button size="sm" variant="outline" onClick={() => setInviteDialogOpen(true)}>
-                <Users className="h-4 w-4 mr-1" /> Convidar
-              </Button>
-            )}
-          </div>
-
-          <div className="grid gap-2">
-            {members.slice(0, 5).map((member) => (
-              <MemberCard
-                key={member.id}
-                id={member.id}
-                name={member.name}
-                avatar={member.avatar}
-                isAdmin={group.admins.includes(member.id)}
-                groupId={groupId}
-              />
-            ))}
-            {members.length > 5 && (
-              <Button variant="outline" asChild>
-                <Link href={`/groups/${groupId}/members`}>
-                  Ver todos os membros
-                </Link>
-              </Button>
-            )}
-          </div>
-        </div>
+        <GroupTabs 
+          events={events} 
+          members={members.map(member => ({
+            ...member,
+            isAdmin: group.admins.includes(member.id)
+          }))} 
+          groupId={groupId}
+          isAdmin={isAdmin}
+        />
       </div>
 
       <InviteDialog

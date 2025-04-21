@@ -1,44 +1,46 @@
-import React from "react";
-import { MobileLayout } from "@/components/layout/MobileLayout";
-import { TopNav } from "@/components/navigation/TopNav";
-import { BottomNav } from "@/components/navigation/BottomNav";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { GroupCard } from "@/components/cards/GroupEventCards";
-import { EventCard } from "@/components/cards/GroupEventCards";
-import { NotificationCard } from "@/components/cards/NotificationMemberCards";
-import { getCurrentUser, getUserGroups, getGroupEvents, getUserNotifications, Event } from "@/lib/mockData";
-import { Plus, ArrowRight } from "lucide-react";
-import Link from "next/link";
+"use client"
+
+import * as React from "react"
+import { MobileLayout } from "@/components/layout/MobileLayout"
+import { TopNav } from "@/components/navigation/TopNav"
+import { BottomNav } from "@/components/navigation/BottomNav"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { GroupCard } from "@/components/cards/GroupEventCards"
+import { EventCard } from "@/components/cards/GroupEventCards"
+import { NotificationCard } from "@/components/cards/NotificationMemberCards"
+import { getCurrentUser, getUserGroups, getGroupEvents, getUserNotifications, Event } from "@/lib/mockData"
+import { Plus, ArrowRight } from "lucide-react"
+import Link from "next/link"
 
 export default function DashboardPage() {
   // Simulando dados do usuário, grupos, eventos e notificações
-  const currentUser = getCurrentUser();
-  const userGroups = getUserGroups(currentUser.id);
+  const currentUser = getCurrentUser()
+  const userGroups = getUserGroups(currentUser.id)
   
   // Obter eventos dos grupos do usuário
-  let allEvents: Event[] = [];
+  let allEvents: Event[] = []
   userGroups.forEach(group => {
-    const groupEvents = getGroupEvents(group.id);
-    allEvents = [...allEvents, ...groupEvents];
-  });
+    const groupEvents = getGroupEvents(group.id)
+    allEvents = [...allEvents, ...groupEvents]
+  })
   
   // Filtrar apenas eventos futuros e ordenar por data
-  const today = new Date();
+  const today = new Date()
   const upcomingEvents = allEvents
     .filter(event => {
-      const eventDate = new Date(`${event.date}T${event.time}`);
-      return eventDate >= today;
+      const eventDate = new Date(`${event.date}T${event.time}`)
+      return eventDate >= today
     })
     .sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.time}`);
-      const dateB = new Date(`${b.date}T${b.time}`);
-      return dateA.getTime() - dateB.getTime();
-    });
+      const dateA = new Date(`${a.date}T${a.time}`)
+      const dateB = new Date(`${b.date}T${b.time}`)
+      return dateA.getTime() - dateB.getTime()
+    })
   
   // Obter notificações não lidas
   const unreadNotifications = getUserNotifications(currentUser.id)
-    .filter(notification => !notification.isRead);
+    .filter(notification => !notification.isRead)
 
   return (
     <MobileLayout
@@ -155,9 +157,10 @@ export default function DashboardPage() {
                   id={notification.id}
                   title={notification.title}
                   message={notification.message}
-                  type={notification.type}
+                  type={notification.type as "info" | "success" | "warning"}
                   isRead={notification.isRead}
                   createdAt={notification.createdAt}
+                  relatedId={notification.relatedId}
                 />
               ))}
             </div>
@@ -165,5 +168,5 @@ export default function DashboardPage() {
         )}
       </div>
     </MobileLayout>
-  );
+  )
 }
