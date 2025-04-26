@@ -15,13 +15,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { 
-  getCurrentUser,
-  getGroupEvents,
-  getGroupById,
-  isGroupAdmin,
-  getUserById
-} from "@/lib/mockData";
+import { User, Group, Event } from "@/lib/types"; // Import types
 
 interface MemberDetailsProps {
   open: boolean;
@@ -31,6 +25,37 @@ interface MemberDetailsProps {
   memberSince?: string; // Data de entrada no grupo (opcional)
 }
 
+// Placeholder functions/data (replace with actual data fetching)
+const getCurrentUser = (): User | null => {
+  // TODO: Replace with actual API call to get current user
+  console.warn("Placeholder function getCurrentUser called");
+  return null; 
+};
+
+const getGroupById = (groupId: string): Group | null => {
+  // TODO: Replace with actual API call to get group by ID
+  console.warn(`Placeholder function getGroupById called for group ${groupId}`);
+  return null; 
+};
+
+const getGroupEvents = (groupId: string): Event[] => {
+  // TODO: Replace with actual API call to get group events
+  console.warn(`Placeholder function getGroupEvents called for group ${groupId}`);
+  return []; 
+};
+
+const getUserById = (userId: string): User | null => {
+  // TODO: Replace with actual API call to get user by ID
+  console.warn(`Placeholder function getUserById called for user ${userId}`);
+  return null; 
+};
+
+const isGroupAdmin = (userId: string | undefined, groupId: string): boolean => {
+  // TODO: Replace with actual logic, potentially involving API calls or checking group/user data
+  console.warn(`Placeholder function isGroupAdmin called for user ${userId} and group ${groupId}`);
+  return false; 
+};
+
 export function MemberDetails({ 
   open, 
   onOpenChange, 
@@ -39,48 +64,53 @@ export function MemberDetails({
   memberSince = "01/01/2025" // valor padrão simulado
 }: MemberDetailsProps) {
   const currentUser = getCurrentUser();
-  const isAdmin = isGroupAdmin(currentUser.id, groupId);
-  const group = getGroupById(groupId);
+  const isAdmin = isGroupAdmin(currentUser?.id, groupId);
   const groupEvents = getGroupEvents(groupId);
   
-  // Usando useState para gerenciar o estado do usuário
-  const [user, setUser] = useState({
+  const [user, setUser] = useState<Partial<User> & { whatsapp?: string; showWhatsapp?: boolean; isAdmin?: boolean }>({ 
     id: userId,
-    name: "Nome do Membro",
+    name: "Carregando...", // Initial placeholder name
     avatar: "",
-    whatsapp: "(11) 98765-4321",
-    isAdmin: group?.admins.includes(userId) || false,
-    sportPreferences: [
-      { sport: "futebol", position: "Atacante" },
-      { sport: "basquete", position: "Ala" }
-    ],
-    showWhatsapp: true,
+    whatsapp: undefined,
+    isAdmin: false,
+    sportPreferences: [],
+    showWhatsapp: false,
   });
   
-  // Buscar dados do usuário quando o componente for montado ou quando userId mudar
   useEffect(() => {
-    // Resetar o usuário para valores padrão ao abrir o diálogo
     if (open) {
-      const realUser = getUserById(userId);
+      // TODO: Implement actual user data fetching here
+      const realUser = getUserById(userId); 
+      const groupData = getGroupById(groupId); 
+
       if (realUser) {
-        // Atualizar o estado com os dados reais do usuário
         setUser({
           id: userId,
           name: realUser.name,
           avatar: realUser.avatar,
-          whatsapp: "(11) 98765-4321",
-          isAdmin: group?.admins.includes(userId) || false,
-          sportPreferences: realUser.sportPreferences,
-          showWhatsapp: true,
+          whatsapp: "...", // TODO: Get real whatsapp
+          isAdmin: groupData?.admins.includes(userId) || false,
+          sportPreferences: realUser.sportPreferences ?? [], // Ensure array even if undefined
+          showWhatsapp: true, // TODO: Determine based on data
         });
+      } else {
+         setUser({
+           id: userId,
+           name: "Membro",
+           avatar: "",
+           whatsapp: undefined,
+           isAdmin: groupData?.admins.includes(userId) || false,
+           sportPreferences: [],
+           showWhatsapp: false,
+         });
       }
     }
-  }, [userId, open, group?.admins]);
+  }, [userId, open, groupId]);
   
   // Calcular estatísticas de participação
   const totalGroupEvents = groupEvents.length;
-  const userAttendedEvents = groupEvents.filter(event => 
-    event.attendees.some(a => a.userId === userId && a.status === 'confirmed')
+  const userAttendedEvents = groupEvents.filter((event: Event) => // Add Event type
+    event.attendees.some((a: { userId: string; status: string }) => a.userId === userId && a.status === 'confirmed') // Add type for attendee
   ).length;
   
   const attendanceRate = totalGroupEvents > 0 
@@ -131,17 +161,17 @@ export function MemberDetails({
                 {user.avatar ? (
                   <AvatarImage 
                     src={user.avatar} 
-                    alt={user.name} 
+                    alt={user.name ?? 'Avatar'} // Add fallback for alt
                     className="h-full w-full object-cover"
                   />
                 ) : (
                   <AvatarFallback className="text-xl">
-                    {user.name.split(" ").map((n) => n[0]).join("")}
+                    {user.name?.split(" ").map((n) => n[0]).join("") ?? 'M'} // Handle potential undefined name
                   </AvatarFallback>
                 )}
               </Avatar>
               
-              <h2 className="text-xl font-bold mt-3">{user.name}</h2>
+              <h2 className="text-xl font-bold mt-3">{user.name ?? 'Nome Indisponível'}</h2>
               
               <div className="flex items-center gap-2 mt-1">
                 {user.isAdmin && (
@@ -151,12 +181,12 @@ export function MemberDetails({
                 )}
               </div>
               
-              {user.showWhatsapp && (
+              {user.showWhatsapp && user.whatsapp && ( // Check if whatsapp exists
                 <Button 
                   variant="outline" 
                   size="sm" 
                   className="mt-3 gap-1"
-                  onClick={() => window.open(`https://wa.me/${user.whatsapp.replace(/\D/g, '')}`, '_blank')}
+                  onClick={() => window.open(`https://wa.me/${user.whatsapp?.replace(/\D/g, '')}`, '_blank')} // Optional chaining on whatsapp
                 >
                   <PhoneCall className="h-4 w-4" /> WhatsApp
                 </Button>
@@ -174,11 +204,15 @@ export function MemberDetails({
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground mb-2">Preferências esportivas</h3>
                 <div className="flex flex-wrap gap-2">
-                  {user.sportPreferences.map((pref, i) => (
-                    <Badge key={i} variant="outline" className="capitalize">
-                      {pref.sport} - {pref.position}
-                    </Badge>
-                  ))}
+                  {user.sportPreferences && user.sportPreferences.length > 0 ? (
+                     user.sportPreferences.map((pref, i) => ( 
+                      <Badge key={i} variant="outline" className="capitalize">
+                        {pref.sport} - {pref.position}
+                      </Badge>
+                     ))
+                   ) : (
+                      <p className="text-sm text-muted-foreground">Nenhuma preferência informada.</p>
+                   )}
                 </div>
               </div>
               
@@ -219,7 +253,7 @@ export function MemberDetails({
                 </div>
               </div>
               
-              {isAdmin && !user.isAdmin && userId !== currentUser.id && (
+              {isAdmin && userId !== currentUser?.id && (
                 <div className="pt-2 mb-6">
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Ações administrativas</h3>
                   <div className="grid grid-cols-2 gap-2">

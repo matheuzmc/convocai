@@ -1,195 +1,151 @@
 "use client";
 
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { EventCard } from "@/components/cards/GroupEventCards";
-import { Event, getCurrentUser, getUserGroups, getGroupEvents } from "@/lib/mockData";
-import { Calendar, Search, Filter, Download } from "lucide-react";
+import { Calendar, AlertTriangle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { getPastEvents, getUserGroups } from "@/services/api";
 
 export default function EventHistoryPage() {
-  // Simulando dados do usuário e eventos
-  const currentUser = getCurrentUser();
-  const userGroups = getUserGroups(currentUser.id);
-  
-  // Obter todos os eventos dos grupos do usuário
-  let allEvents: Event[] = [];
-  userGroups.forEach(group => {
-    const groupEvents = getGroupEvents(group.id);
-    allEvents = [...allEvents, ...groupEvents];
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("all");
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("all");
+
+  const { 
+    data: pastEvents = [],
+    isLoading: isLoadingEvents, 
+    error: eventsError 
+  } = useQuery({
+    queryKey: ['userPastEvents'],
+    queryFn: getPastEvents
   });
-  
-  // Filtrar apenas eventos passados e ordenar por data (mais recente primeiro)
-  const today = new Date();
-  const pastEvents = allEvents
-    .filter(event => {
-      const eventDate = new Date(`${event.date}T${event.time}`);
-      return eventDate < today;
-    })
-    .sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.time}`);
-      const dateB = new Date(`${b.date}T${b.time}`);
-      return dateB.getTime() - dateA.getTime();
-    });
-  
-  const [filter, setFilter] = React.useState<'all' | 'attended' | 'missed'>('all');
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [groupFilter, setGroupFilter] = React.useState("all");
-  const [timeFilter, setTimeFilter] = React.useState("all");
-  
-  // Aplicar filtros
-  const filteredEvents = pastEvents.filter(event => {
-    // Filtro de busca
-    if (searchQuery && !event.title.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
+
+  const { 
+    data: userGroups = [],
+    isLoading: isLoadingGroups, 
+    error: groupsError 
+  } = useQuery({
+    queryKey: ['userGroups'],
+    queryFn: getUserGroups
+  });
+
+  const filteredEvents = useMemo(() => {
+    let events = pastEvents;
+
+    if (selectedGroupId !== "all") {
+      events = events.filter(event => event.groupId === selectedGroupId);
     }
-    
-    // Filtro de participação
-    if (filter === 'attended') {
-      const attendance = event.attendees.find(a => a.userId === currentUser.id);
-      if (!attendance || attendance.status !== 'confirmed') {
-        return false;
-      }
-    } else if (filter === 'missed') {
-      const attendance = event.attendees.find(a => a.userId === currentUser.id);
-      if (!attendance || attendance.status !== 'declined') {
-        return false;
-      }
-    }
-    
-    // Filtro de grupo
-    if (groupFilter !== "all" && event.groupId !== groupFilter) {
-      return false;
-    }
-    
-    // Filtro de tempo
-    if (timeFilter !== "all") {
-      const eventDate = new Date(`${event.date}T${event.time}`);
+
+    if (selectedPeriod !== "all") {
       const now = new Date();
-      const oneMonth = 30 * 24 * 60 * 60 * 1000;
-      const threeMonths = 3 * oneMonth;
-      const sixMonths = 6 * oneMonth;
-      
-      if (timeFilter === "month" && (now.getTime() - eventDate.getTime() > oneMonth)) {
-        return false;
-      } else if (timeFilter === "three_months" && (now.getTime() - eventDate.getTime() > threeMonths)) {
-        return false;
-      } else if (timeFilter === "six_months" && (now.getTime() - eventDate.getTime() > sixMonths)) {
-        return false;
+      const periodDate = new Date();
+      if (selectedPeriod === "last7") {
+        periodDate.setDate(now.getDate() - 7);
+      } else if (selectedPeriod === "last30") {
+        periodDate.setDate(now.getDate() - 30);
+      } else if (selectedPeriod === "last90") {
+        periodDate.setDate(now.getDate() - 90);
       }
+      periodDate.setHours(0, 0, 0, 0);
+      
+      events = events.filter(event => {
+        const eventDateParts = event.date.split('-').map(Number);
+        const eventDate = new Date(eventDateParts[0], eventDateParts[1] - 1, eventDateParts[2]);
+        eventDate.setHours(0,0,0,0);
+        return eventDate >= periodDate;
+      });
     }
     
-    return true;
-  });
+    return events;
+
+  }, [pastEvents, selectedGroupId, selectedPeriod]);
+
+  const isLoading = isLoadingEvents || isLoadingGroups;
+  const error = eventsError || groupsError;
+
+  if (error) {
+    return (
+      <MobileLayout
+        header={<TopNav title="Histórico de Eventos" backHref="/dashboard" />}
+        footer={<BottomNav />}
+      >
+        <div className="p-4 text-center text-destructive">
+          <AlertTriangle className="mx-auto h-8 w-8 mb-2"/>
+          Erro ao carregar histórico.
+          {error && <p className="text-xs mt-2">{(error as Error).message}</p>}
+        </div>
+      </MobileLayout>
+    );
+  }
 
   return (
     <MobileLayout
-      header={<TopNav title="Histórico de Eventos" backHref="/events" />}
+      header={<TopNav title="Histórico de Eventos" backHref="/dashboard" />}
       footer={<BottomNav />}
     >
       <div className="space-y-6">
-        <Tabs defaultValue="all" className="w-full" onValueChange={(value) => setFilter(value as 'all' | 'attended' | 'missed')}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="all">Todos</TabsTrigger>
-            <TabsTrigger value="attended">Participei</TabsTrigger>
-            <TabsTrigger value="missed">Não participei</TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar eventos..."
-              className="pl-9"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <Select value={groupFilter} onValueChange={setGroupFilter}>
-                <SelectTrigger className="h-9">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Grupo" />
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Select value={selectedGroupId} onValueChange={setSelectedGroupId} disabled={isLoading}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Filtrar por grupo..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os grupos</SelectItem>
-                  {userGroups.map(group => (
-                    <SelectItem key={group.id} value={group.id}>
-                      {group.name}
-                    </SelectItem>
-                  ))}
+              {isLoadingGroups ? (
+                 <SelectItem value="loading" disabled>Carregando...</SelectItem>
+              ) : (
+                 userGroups.map(group => (
+                   <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                 ))
+              )}
                 </SelectContent>
               </Select>
-            </div>
-            
-            <div className="flex-1">
-              <Select value={timeFilter} onValueChange={setTimeFilter}>
-                <SelectTrigger className="h-9">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Período" />
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod} disabled={isLoading}>
+             <SelectTrigger className="w-full sm:w-[180px]">
+               <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+               <SelectValue placeholder="Filtrar por período..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todo período</SelectItem>
-                  <SelectItem value="month">Último mês</SelectItem>
-                  <SelectItem value="three_months">Últimos 3 meses</SelectItem>
-                  <SelectItem value="six_months">Últimos 6 meses</SelectItem>
+              <SelectItem value="last7">Últimos 7 dias</SelectItem>
+              <SelectItem value="last30">Últimos 30 dias</SelectItem>
+              <SelectItem value="last90">Últimos 90 dias</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </div>
         </div>
 
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-medium">
             {filteredEvents.length} {filteredEvents.length === 1 ? 'evento' : 'eventos'} encontrados
           </h2>
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-1" /> Exportar
-          </Button>
         </div>
 
         <div className="space-y-4">
-          {filteredEvents.length === 0 ? (
-            <Card>
-              <CardContent className="p-6 text-center">
-                <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                <h3 className="text-lg font-medium mb-1">Nenhum evento encontrado</h3>
+          {isLoading ? (
+            <div className="space-y-4">
+               <Skeleton className="h-24 w-full rounded-xl" />
+               <Skeleton className="h-24 w-full rounded-xl" />
+               <Skeleton className="h-24 w-full rounded-xl" />
+            </div>
+          ) : filteredEvents.length === 0 ? (
+            <div className="text-center py-10">
                 <p className="text-muted-foreground">
-                  Não há eventos que correspondam aos filtros selecionados.
+                Nenhum evento passado encontrado{selectedGroupId !== 'all' || selectedPeriod !== 'all' ? ' para os filtros selecionados' : ''}.
                 </p>
-              </CardContent>
-            </Card>
+            </div>
           ) : (
             <div className="grid gap-4">
               {filteredEvents.map((event) => {
-                const group = userGroups.find(g => g.id === event.groupId);
-                const attendance = event.attendees.find(a => a.userId === currentUser.id);
-                const attendanceStatus = attendance ? attendance.status : 'pending';
-                
                 return (
-                  <div key={event.id} className="relative">
                     <EventCard
-                      id={event.id}
-                      title={event.title}
-                      description={event.description}
-                      location={event.location}
-                      date={event.date}
-                      time={event.time}
-                      attendeeCount={event.attendees.filter(a => a.status === 'confirmed').length}
-                      groupName={group?.name}
-                      attendanceStatus={attendanceStatus}
-                      isPast={true}
-                    />
-                  </div>
+                    key={event.id}
+                    event={event}
+                  />
                 );
               })}
             </div>

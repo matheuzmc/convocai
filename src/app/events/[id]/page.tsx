@@ -1,196 +1,607 @@
 "use client";
 
-import React from "react";
+import React, { useState, useRef, useEffect, TouchEventHandler } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { getEventById, getUserById, getGroupById, getCurrentUser } from "@/lib/mockData";
-import { Calendar, Clock, MapPin, Check, X } from "lucide-react";
+import { MapPin, Calendar, Clock, CheckCircle, XCircle, AlertTriangle, Loader2, Pencil } from "lucide-react"; 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; 
+import { useCurrentUser } from "@/hooks/useCurrentUser"; 
+import { getEventDetails, respondToEvent } from "@/services/api"; 
+import { toast } from "sonner"; 
+import { EventDetailsData } from "@/lib/types"; 
+import { MemberDetails } from "@/components/ui-elements/MemberDetails";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+// Simplified helper component for static inline icons
+const InlineResponseButtons = ({
+  currentStatus,
+}: {
+  currentStatus: 'confirmed' | 'declined' | 'pending';
+}) => {
+  // Always return static icon based on status
+  if (currentStatus === 'confirmed') return <CheckCircle className="h-6 w-6 text-green-500 flex-shrink-0" />;
+  if (currentStatus === 'declined') return <XCircle className="h-6 w-6 text-destructive flex-shrink-0" />;
+  return <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0" />;
+};
 
 export default function EventDetailsPage() {
-  // Obter o ID do evento da URL
   const params = useParams();
   const eventId = params.id as string;
-  
-  // Simulando dados do evento
-  const event = getEventById(eventId);
-  const currentUser = getCurrentUser();
-  
-  // Verificar se o usuário atual está confirmado para o evento
-  const userAttendance = event?.attendees.find(a => a.userId === currentUser.id);
-  const isConfirmed = userAttendance?.status === 'confirmed';
-  const isDeclined = userAttendance?.status === 'declined';
-  
-  // Obter dados do grupo
-  const group = event ? getGroupById(event.groupId) : null;
-  const isAdmin = group?.admins.includes(currentUser.id) || false;
+  const queryClient = useQueryClient();
 
-  if (!event || !group) {
+  const { data: currentUser, isLoading: isLoadingUser } = useCurrentUser();
+
+  const { 
+    data: eventDetails, 
+    isLoading: isLoadingEvent, 
+    error: eventError 
+  } = useQuery<EventDetailsData | null>({
+    queryKey: ['eventDetails', eventId], 
+    queryFn: () => getEventDetails(eventId),
+    enabled: !!eventId && !!currentUser,
+  });
+
+  const [isMemberDrawerOpen, setIsMemberDrawerOpen] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const descriptionRef = useRef<HTMLDivElement>(null);
+  const [canExpandDescription, setCanExpandDescription] = useState(false);
+  const [cardSlide, setCardSlide] = useState(0);
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
+
+  // Refs and state for CARD SWIPING
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+  const minSwipeDistance = 50; // Minimum distance for a swipe gesture
+
+  const isLoading = isLoadingUser || isLoadingEvent;
+
+  const event = eventDetails?.event;
+  const group = eventDetails?.group ?? null;
+  const attendees = eventDetails?.attendees ?? [];
+  const isAdmin = eventDetails?.isAdmin ?? false;
+  
+  // DEBUG: Log attendees data from API
+  useEffect(() => {
+    if(eventDetails) {
+      console.log("Attendees data from API:", eventDetails.attendees);
+    }
+  }, [eventDetails]);
+
+  const confirmedAttendees = attendees.filter(a => a.status === 'confirmed');
+  const declinedAttendees = attendees.filter(a => a.status === 'declined');
+  const pendingAttendees = attendees.filter(a => a.status === 'pending');
+  const currentUserAttendee = attendees.find(att => att.userId === currentUser?.id);
+  const currentStatus = currentUserAttendee?.status ?? 'pending';
+  const isPast = event ? new Date(event.date + 'T00:00:00') < new Date(new Date().toDateString()) : false;
+
+  const respondMutation = useMutation({
+    mutationFn: async (status: 'confirmed' | 'declined') => {
+        if (!currentUser) throw new Error("User not logged in");
+        if (!event) throw new Error("Event data not available");
+        await respondToEvent(event.id, currentUser.id, status);
+        return status;
+    },
+    onSuccess: (status) => {
+      if (status === 'confirmed') {
+        toast.success('Participação confirmada!');
+      } else {
+        toast.success('Participação cancelada.');
+      }
+      queryClient.invalidateQueries({ queryKey: ['eventDetails', eventId] });
+      queryClient.invalidateQueries({ queryKey: ['userUpcomingEvents', currentUser?.id] });
+      queryClient.invalidateQueries({ queryKey: ['userPastEvents', currentUser?.id] });
+      queryClient.invalidateQueries({ queryKey: ['groupDetails', event?.groupId] });
+    },
+    onError: (error) => {
+      toast.error(`Erro ao responder ao evento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
+  });
+
+  const handleRespond = (status: 'confirmed' | 'declined') => {
+    respondMutation.mutate(status);
+  }
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "Data indefinida";
+    try {
+        const dateObj = new Date(`${dateString}T00:00:00`); 
+        const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: "numeric", month: "long" };
+        if (isNaN(dateObj.getTime())) return "Data Inválida";
+        return dateObj.toLocaleDateString("pt-BR", options);
+    } catch (error) {
+         console.error("Error formatting date:", dateString, error);
+         return "Data Inválida"; 
+    }
+  };
+  const formatTime = (timeString: string | null | undefined) => {
+    if (!timeString) return '--:--';
+    return timeString.substring(0, 5);
+  };
+
+  const handleMemberClick = (userId: string) => {
+    setSelectedMemberId(userId);
+    setIsMemberDrawerOpen(true);
+  };
+
+  useEffect(() => {
+    setCanExpandDescription(false); 
+    if (descriptionRef.current) {
+      const checkClamping = () => {
+           if (descriptionRef.current) {
+               const isClamped = descriptionRef.current.scrollHeight > descriptionRef.current.clientHeight;
+               setCanExpandDescription(isClamped);
+           }
+      };
+      const timerId = setTimeout(checkClamping, 50); 
+      return () => clearTimeout(timerId);
+    }
+  }, [event?.description, isDescriptionExpanded]);
+
+  // --- Card Swiping Handlers ---
+  const handleTouchStart: TouchEventHandler<HTMLDivElement> = (e) => {
+    touchEndX.current = null; // Reset endX
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove: TouchEventHandler<HTMLDivElement> = (e) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return;
+
+    const distance = touchStartX.current - touchEndX.current;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe && cardSlide === 0) {
+      setCardSlide(1); // Swipe left from info to description
+    } else if (isRightSwipe && cardSlide === 1) {
+      setCardSlide(0); // Swipe right from description to info
+    }
+
+    // Reset refs
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+  // --- End Card Swiping Handlers ---
+
+  if (isLoading) {
     return (
       <MobileLayout
-        header={<TopNav title="Evento" backHref="/events" />}
+        header={<TopNav title="Carregando Evento..." backHref="/dashboard" />}
         footer={<BottomNav />}
       >
-        <div className="flex flex-col items-center justify-center h-full py-10 text-center">
-          <h2 className="text-xl font-semibold mb-2">Evento não encontrado</h2>
-          <p className="text-muted-foreground mb-6">
-            O evento que você está procurando não existe ou foi removido.
-          </p>
-          <Button asChild>
-            <Link href="/events">Voltar para Eventos</Link>
-          </Button>
+        <div className="space-y-4 p-4">
+           <div className="flex justify-between items-center">
+             <Skeleton className="h-8 w-3/4" />
+             <Skeleton className="h-4 w-20 rounded-md" />
+           </div>
+           <div className="border bg-card rounded-lg shadow-sm overflow-hidden mt-4 p-4 space-y-2">
+             <Skeleton className="h-4 w-1/3 mb-2" />
+             <Skeleton className="h-5 w-1/2" />
+             <Skeleton className="h-5 w-1/3" />
+             <Skeleton className="h-5 w-3/4" />
+           </div>
+           <Skeleton className="h-10 w-full mt-4" />
+           <div className="mt-4">
+             <Skeleton className="h-10 w-full" />
+             <div className="space-y-3 pt-4 mt-4">
+               {[...Array(3)].map((_, i) => (
+                 <div key={i} className="flex items-center justify-between gap-3 p-3 border rounded-lg bg-card">
+                   <div className="flex items-center gap-3 flex-grow">
+                     <Skeleton className="h-10 w-10 rounded-full" />
+                     <Skeleton className="h-5 flex-1" />
+                   </div>
+                   <Skeleton className="h-6 w-6 rounded-md" />
+                 </div>
+               ))}
+             </div>
+           </div>
+        </div>
+      </MobileLayout>
+    );
+  }
+
+  if (eventError || !eventDetails || !event || !group) {
+     return (
+      <MobileLayout
+        header={<TopNav title="Erro" backHref="/dashboard" />}
+        footer={<BottomNav />}
+      >
+        <div className="p-4 text-center text-destructive">
+          <AlertTriangle className="mx-auto h-8 w-8 mb-2"/>
+          Erro ao carregar detalhes do evento.
+          {eventError && <p className="text-xs mt-2">{(eventError as Error).message}</p>}
         </div>
       </MobileLayout>
     );
   }
 
   return (
+    <>
     <MobileLayout
-      header={<TopNav title="Detalhes do Evento" backHref={`/groups/${group.id}`} />}
+        header={<TopNav title={event.title} backHref={`/groups/${group.id}`} showNotifications />}
       footer={<BottomNav />}
-    >
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold">{event.title}</h1>
-          <div className="flex items-center gap-2">
-            <Link href={`/groups/${group.id}`} className="text-primary hover:underline">
-              {group.name}
-            </Link>
-            {event.isPeriodic && (
-              <Badge variant="outline">
-                {event.frequency === 'weekly' ? 'Semanal' : 
-                 event.frequency === 'biweekly' ? 'Quinzenal' : 'Mensal'}
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="p-4 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-primary/10">
-                  <Calendar className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Data e Hora</p>
-                  <p className="text-sm text-muted-foreground">
-                    {event.date} às {event.time}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-primary/10">
-                  <MapPin className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Local</p>
-                  <p className="text-sm text-muted-foreground">
-                    {event.location}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-full bg-primary/10">
-                  <Clock className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Notificação</p>
-                  <p className="text-sm text-muted-foreground">
-                    {event.notifyBefore} horas antes do evento
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
+      >
+        <div className="space-y-6 p-4">
           <div className="space-y-2">
-            <h3 className="text-lg font-medium">Descrição</h3>
-            <p className="text-muted-foreground">
-              {event.description}
-            </p>
-          </div>
-          
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">Participantes</h3>
-              <span className="text-sm text-muted-foreground">
-                {event.attendees.filter(a => a.status === 'confirmed').length} confirmados
-              </span>
+            <div className="flex justify-between items-start gap-2">
+              <div className="flex-grow min-w-0">
+                  <h1 className="text-2xl font-bold leading-tight break-words">{event.title}</h1>
+                  <Link href={`/groups/${group.id}`} className="text-xs text-primary hover:underline block mt-1 truncate">
+                    {group.name}
+                  </Link>
+              </div>
+              {isAdmin && (
+                  <Button variant="outline" size="icon" className="flex-shrink-0" asChild>
+                      <Link href={`/groups/${group.id}/events/${event.id}/edit`}>
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Editar Evento</span>
+                      </Link>
+                  </Button>
+              )}
             </div>
-            
-            <div className="grid gap-2">
-              {event.attendees.map((attendee) => {
-                const user = getUserById(attendee.userId);
-                if (!user) return null;
-                
-                return (
-                  <div key={user.id} className="flex items-center justify-between p-2 rounded-md border">
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={user.avatar} alt={user.name} />
-                        <AvatarFallback>
-                          {user.name.split(" ").map((n) => n[0]).join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                        <Badge 
-                          variant={attendee.status === 'confirmed' ? 'default' : 
-                                  attendee.status === 'declined' ? 'destructive' : 'outline'}
-                          className="text-xs"
-                        >
-                          {attendee.status === 'confirmed' ? 'Confirmado' : 
-                           attendee.status === 'declined' ? 'Não vai' : 'Pendente'}
-                        </Badge>
-                      </div>
+
+            <div className="border bg-card rounded-lg shadow-sm overflow-hidden mt-4"> 
+              <div 
+                ref={sliderRef}
+                className={`flex transition-transform duration-300 ease-in-out`} 
+                style={{ transform: `translateX(-${cardSlide * 100}%)` }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
+                <div className="p-4 space-y-2 flex-shrink-0 w-full"> 
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Informações</h3>
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex items-center">
+                      <Calendar className="h-4 w-4 mr-2 text-muted-foreground" /> 
+                      <span>{formatDate(event.date)}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 mr-2 text-muted-foreground" /> 
+                      <span>{formatTime(event.time)}</span>
+                </div>
+                    <div className="flex items-start">
+                      <MapPin className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />
+                      <span>{event.location ?? 'Local a definir'}</span>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+
+                <div className="p-4 flex-shrink-0 w-full">
+                  {event.description ? (
+                    <>
+                      <h3 className="text-sm font-medium text-muted-foreground mb-1">Descrição</h3>
+                      <p 
+                        ref={descriptionRef} 
+                        className={`text-sm whitespace-pre-wrap text-foreground ${!isDescriptionExpanded ? 'line-clamp-3' : ''}`}
+                      >
+                        {event.description}
+                      </p>
+                      {canExpandDescription && (
+                        <button 
+                          onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} 
+                          className="text-sm text-primary hover:underline mt-1 font-medium"
+                        >
+                          {isDescriptionExpanded ? 'Ver menos' : 'Ver mais'}
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhuma descrição fornecida.</p>
+                  )}
+                </div>
+              </div>
+              
+              {event.description && ( 
+                <div className="flex justify-center items-center gap-2 pt-1 pb-3">
+                  {[0, 1].map((index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCardSlide(index)}
+                      className={`h-2 w-2 rounded-full transition-colors duration-200 ${cardSlide === index ? 'bg-primary' : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'}`}
+                      aria-label={`Ir para ${index === 0 ? 'informações' : 'descrição'}`}
+                    />
+                  ))}
+                </div>
+              )}
+                </div>
+
+            <div className="flex flex-col gap-3 p-3 rounded-lg border bg-card text-sm mt-6">
+              <div className="flex justify-around items-center w-full">
+                <div className="flex flex-col items-center gap-1">
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <span className="font-medium text-foreground">{confirmedAttendees.length}</span>
+                  </div>
+                  <span className="text-muted-foreground text-xs sm:inline">Confirmados</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <div className="flex items-center gap-1">
+                    <XCircle className="h-5 w-5 text-destructive" />
+                    <span className="font-medium text-foreground">{declinedAttendees.length}</span>
+                  </div>
+                  <span className="text-muted-foreground text-xs sm:inline">Cancelados</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <div className="flex items-center gap-1">
+                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+                    <span className="font-medium text-foreground">{pendingAttendees.length}</span>
+                  </div>
+                  <span className="text-muted-foreground text-xs sm:inline">Pendentes</span>
+                </div>
+              </div>
+
+              {currentUser && !isPast && (
+                <>
+                  <div className="border-t border-border my-1"></div>
+
+                  <div> 
+                    {currentStatus === 'confirmed' ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          className="w-full text-destructive border-destructive/50 hover:bg-red-100 hover:text-destructive/90 dark:hover:bg-red-900/20"
+                          onClick={() => setIsCancelConfirmOpen(true)}
+                          disabled={respondMutation.isPending}
+                        >
+                          {respondMutation.isPending && respondMutation.variables === 'declined' ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : null}
+                          Cancelar participação
+                        </Button>
+
+                        <AlertDialog open={isCancelConfirmOpen} onOpenChange={setIsCancelConfirmOpen}>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Confirmar Cancelamento</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja cancelar sua participação neste evento?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Voltar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleRespond('declined')}
+                                className="bg-destructive hover:bg-destructive/90"
+                                style={{ color: 'var(--destructive-foreground)' }}
+                                disabled={respondMutation.isPending}
+                              >
+                                 {respondMutation.isPending && respondMutation.variables === 'declined' ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : null}
+                                Confirmar Cancelamento
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
+                    ) : (
+                      <Button
+                        variant="default"
+                        className="w-full bg-green-600 hover:bg-green-700 text-white"
+                        onClick={() => handleRespond('confirmed')}
+                        disabled={respondMutation.isPending}
+                      >
+                        {respondMutation.isPending && respondMutation.variables === 'confirmed' ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : null}
+                        Confirmar participação
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
+          
+          <div> 
+            <Tabs defaultValue="participants" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="participants">Participantes</TabsTrigger>
+                  <TabsTrigger value="comments">Comentários</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="participants" className="mt-2 space-y-4">
+                  <div className="space-y-2">
+                    {isLoadingEvent ? (
+                      <div className="space-y-3 pt-4">
+                        {[...Array(3)].map((_, i) => (
+                          <div key={i} className="flex items-center justify-between gap-3 p-3 border rounded-lg bg-card">
+                            <div className="flex items-center gap-3 flex-grow">
+                              <Skeleton className="h-10 w-10 rounded-full" />
+                              <Skeleton className="h-5 flex-1" />
+                            </div>
+                            <Skeleton className="h-6 w-6 rounded-md" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : attendees.length === 0 ? (
+                       <p className="text-sm text-center text-muted-foreground py-6">
+                        Nenhum participante respondeu ainda.
+                      </p>
+                    ) : (
+                      <>
+                        {confirmedAttendees.length > 0 && (
+                          <>
+                             <div className="pt-4">
+                              <h3 className="text-sm font-medium text-muted-foreground">Confirmados</h3>
+          </div>
+                            {confirmedAttendees.map((attendee) => (
+                              <div
+                                key={attendee.userId}
+                                className="p-3 rounded-lg border border-border bg-card flex items-center justify-between gap-3"
+                              >
+                                <div 
+                                  className="flex items-center gap-3 flex-grow min-w-0 cursor-pointer" 
+                                  onClick={() => handleMemberClick(attendee.userId)}
+                                >
+                                  <Avatar className="h-10 w-10">
+                                    {attendee.profile?.avatar_url ? (
+                                      <AvatarImage src={attendee.profile.avatar_url} alt={attendee.profile.name ?? 'Avatar'} />
+                                    ) : (
+                                      <AvatarFallback>
+                                        {attendee.profile?.name?.split(" ").map((n) => n[0]).join("").toUpperCase() ?? 'U'}
+                                      </AvatarFallback>
+                                    )}
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0">
+                                    {attendee.profile?.nickname ? (
+                                       <>
+                                         <span className="text-sm font-medium block truncate">
+                                           {attendee.profile.nickname}
+                                         </span>
+                                         <span className="text-xs text-muted-foreground block truncate">
+                                           {`${attendee.profile?.name || ''} ${attendee.profile?.last_name || ''}`.trim() || 'Nome Completo Indisponível'}
+                                         </span>
+                                       </>
+                                    ) : (
+                                       <span className="text-sm font-medium block truncate">
+                                         {`${attendee.profile?.name || ''} ${attendee.profile?.last_name || ''}`.trim() || 'Nome Indisponível'}
+                                       </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <InlineResponseButtons
+                                  currentStatus={attendee.status as 'confirmed' | 'declined' | 'pending'}
+                                />
         </div>
-        
-        <div className="pt-4 border-t">
-          <div className="flex gap-2">
-            {isConfirmed ? (
-              <Button variant="outline" className="w-full">
-                <X className="mr-2 h-4 w-4" /> Cancelar presença
-              </Button>
-            ) : isDeclined ? (
-              <Button className="w-full">
-                <Check className="mr-2 h-4 w-4" /> Confirmar presença
-              </Button>
-            ) : (
-              <>
-                <Button variant="outline" className="w-full">
-                  <X className="mr-2 h-4 w-4" /> Não vou
-                </Button>
-                <Button className="w-full">
-                  <Check className="mr-2 h-4 w-4" /> Confirmar
-                </Button>
+                            ))}
+                          </>
+                        )}
+                
+                        {declinedAttendees.length > 0 && (
+                          <>
+                            <div className="pt-4">
+                              <h3 className="text-sm font-medium text-muted-foreground">Cancelados</h3>
+                            </div>
+                            {declinedAttendees.map((attendee) => (
+                              <div 
+                                key={attendee.userId} 
+                                className="p-3 rounded-lg border border-border bg-card flex items-center justify-between gap-3"
+                              >
+                                <div className="flex items-center gap-3 flex-grow min-w-0 cursor-pointer" onClick={() => handleMemberClick(attendee.userId)}>
+                                  <Avatar className="h-10 w-10">
+                                    {attendee.profile?.avatar_url ? (
+                                      <AvatarImage src={attendee.profile.avatar_url} alt={attendee.profile.name ?? 'Avatar'} />
+                                    ) : (
+                                      <AvatarFallback>
+                                        {attendee.profile?.name?.split(" ").map((n) => n[0]).join("").toUpperCase() ?? 'U'}
+                                      </AvatarFallback>
+                                    )}
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0">
+                                    {attendee.profile?.nickname ? (
+                                       <>
+                                         <span className="text-sm font-medium block truncate">
+                                           {attendee.profile.nickname}
+                                         </span>
+                                         <span className="text-xs text-muted-foreground block truncate">
+                                           {`${attendee.profile?.name || ''} ${attendee.profile?.last_name || ''}`.trim() || 'Nome Completo Indisponível'}
+                                         </span>
+                                       </>
+                                    ) : (
+                                       <span className="text-sm font-medium block truncate">
+                                         {`${attendee.profile?.name || ''} ${attendee.profile?.last_name || ''}`.trim() || 'Nome Indisponível'}
+                                       </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <InlineResponseButtons
+                                  currentStatus={attendee.status as 'confirmed' | 'declined' | 'pending'}
+                                />
+                              </div>
+                            ))}
+                          </>
+                        )}
+                
+                        {pendingAttendees.length > 0 && (
+                          <>
+                            <div className="pt-4">
+                              <h3 className="text-sm font-medium text-muted-foreground">Pendentes</h3>
+                            </div>
+                            {pendingAttendees.map((attendee) => (
+                              <div 
+                                key={attendee.userId} 
+                                className="p-3 rounded-lg border border-border bg-card flex items-center justify-between gap-3"
+                              >
+                                <div className="flex items-center gap-3 flex-grow min-w-0 cursor-pointer" onClick={() => handleMemberClick(attendee.userId)}>
+                                  <Avatar className="h-10 w-10">
+                                    {attendee.profile?.avatar_url ? (
+                                      <AvatarImage src={attendee.profile.avatar_url} alt={attendee.profile.name ?? 'Avatar'} />
+                                    ) : (
+                                      <AvatarFallback>
+                                        {attendee.profile?.name?.split(" ").map((n) => n[0]).join("").toUpperCase() ?? 'U'}
+                                      </AvatarFallback>
+                                    )}
+                                  </Avatar>
+                                  <div className="flex-1 min-w-0">
+                                    {attendee.profile?.nickname ? (
+                                       <>
+                                         <span className="text-sm font-medium block truncate">
+                                           {attendee.profile.nickname}
+                                         </span>
+                                         <span className="text-xs text-muted-foreground block truncate">
+                                           {`${attendee.profile?.name || ''} ${attendee.profile?.last_name || ''}`.trim() || 'Nome Completo Indisponível'}
+                                         </span>
+                                       </>
+                                    ) : (
+                                       <span className="text-sm font-medium block truncate">
+                                         {`${attendee.profile?.name || ''} ${attendee.profile?.last_name || ''}`.trim() || 'Nome Indisponível'}
+                                       </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <InlineResponseButtons
+                                  currentStatus={attendee.status as 'confirmed' | 'declined' | 'pending'}
+                                />
+                              </div>
+                            ))}
+                          </>
+                        )}
               </>
             )}
           </div>
-          
-          {isAdmin && (
-            <Button variant="outline" className="w-full mt-2" asChild>
-              <Link href={`/groups/${group.id}/events/${eventId}/edit`}>
-                Editar evento
-              </Link>
-            </Button>
-          )}
+                </TabsContent>
+
+                <TabsContent value="comments" className="mt-2">
+                     <p className="text-center text-muted-foreground py-8">Seção de comentários em breve.</p>
+                  </TabsContent>
+                  
+              </Tabs>
         </div>
       </div>
     </MobileLayout>
+
+      {/* Drawer de Detalhes do Membro */}
+      {group && selectedMemberId && (
+        <MemberDetails
+          userId={selectedMemberId}
+          groupId={group.id} 
+          open={isMemberDrawerOpen}
+          onOpenChange={setIsMemberDrawerOpen}
+        />
+      )}
+    </>
   );
 }

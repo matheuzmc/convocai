@@ -1,15 +1,31 @@
 "use client"
 
-import * as React from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { MapPin, Users } from "lucide-react";
+import { MapPin, Users, Loader2 } from "lucide-react";
+import { Event } from "@/lib/types";
+import { createClient } from '@/lib/supabase/client';
+import { User as AuthUserType } from "@supabase/supabase-js";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { respondToEvent } from "@/services/api";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface GroupCardProps {
   id: string;
   name: string;
-  description: string;
   sport: string;
   image: string;
   memberCount: number;
@@ -19,7 +35,6 @@ interface GroupCardProps {
 export function GroupCard({
   id,
   name,
-  description,
   sport,
   image,
   memberCount,
@@ -48,7 +63,6 @@ export function GroupCard({
         </div>
         <div className="p-4 space-y-2">
           <h3 className="font-semibold text-lg">{name}</h3>
-          <p className="text-sm text-muted-foreground line-clamp-2">{description}</p>
           <div className="flex items-center text-sm text-muted-foreground">
             <Users className="h-4 w-4 mr-1" />
             <span>{memberCount} {memberCount === 1 ? "membro" : "membros"}</span>
@@ -60,45 +74,79 @@ export function GroupCard({
 }
 
 interface EventCardProps {
-  id: string;
-  title: string;
-  description: string;
-  location: string;
-  date: string;
-  time: string;
-  attendeeCount: number;
+  event: Event;
   className?: string;
-  groupName?: string;
-  attendanceStatus?: 'confirmed' | 'declined' | 'pending';
-  isPast?: boolean;
 }
 
-export function EventCard({
-  id,
-  title,
-  description,
-  location,
-  date,
-  time,
-  attendeeCount,
-  className,
-  groupName,
-  attendanceStatus,
-  isPast = false,
-}: EventCardProps) {
-  // Formatar a data para exibição
+export function EventCard({ event, className }: EventCardProps) {
+  const queryClient = useQueryClient();
+  const supabase = createClient();
+  const [authUser, setAuthUser] = useState<AuthUserType | null>(null);
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
+  
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setAuthUser(user);
+    };
+    getUser();
+  }, [supabase]);
+
+  const currentUserAttendee = useMemo(() => 
+     event.attendees.find(att => att.userId === authUser?.id)
+  , [event.attendees, authUser?.id]);
+
+  const currentStatus = currentUserAttendee?.status ?? 'pending';
+  const isPast = new Date(event.date) < new Date();
+
+  const mutation = useMutation({
+    mutationFn: async (status: 'confirmed' | 'declined') => {
+        if (!authUser) throw new Error("User not logged in");
+        await respondToEvent(event.id, authUser.id, status);
+        return status;
+    },
+    onSuccess: (status) => {
+      console.log(`Successfully responded with ${status} to event ${event.id}`);
+      queryClient.invalidateQueries({ queryKey: ['userUpcomingEvents', authUser?.id] });
+      queryClient.invalidateQueries({ queryKey: ['userPastEvents', authUser?.id] });
+      queryClient.invalidateQueries({ queryKey: ['groupDetails', event.groupId] });
+      
+      if (status === 'confirmed') {
+        toast.success('Participação confirmada!');
+      } else {
+        toast.success('Participação cancelada.');
+      }
+    },
+    onError: (error) => {
+      console.error(`Error responding to event ${event.id}:`, error);
+      toast.error(`Erro ao responder ao evento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
+  });
+
+  const handleRespond = (status: 'confirmed' | 'declined') => {
+    mutation.mutate(status);
+  }
+
   const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
-    return new Date(dateString).toLocaleDateString("pt-BR", options);
+    try {
+        const dateObj = new Date(`${dateString}T00:00:00`); 
+        const options: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
+        if (isNaN(dateObj.getTime())) {
+            console.warn("Invalid date provided to formatDate:", dateString);
+            return "Data Inválida";
+        }
+        return dateObj.toLocaleDateString("pt-BR", options);
+    } catch (e) {
+        console.error("Error formatting date:", dateString, e);
+        return "Data Inválida";
+    }
   };
 
-  // Definir cores do status de presença
-  const statusColors = {
-    confirmed: "bg-green-500/20 text-green-700 border-green-500/30",
-    declined: "bg-red-500/20 text-red-700 border-red-500/30",
-    pending: "bg-amber-500/20 text-amber-700 border-amber-500/30"
+  const formatTime = (timeString: string | null) => {
+    if (!timeString) return '--:--';
+    return timeString.substring(0, 5);
   };
-
+  
   return (
     <motion.div
       whileHover={{ y: -4 }}
@@ -108,45 +156,88 @@ export function EventCard({
         className
       )}
     >
-      <Link href={`/events/${id}`}>
-        <div className="p-4 space-y-3">
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="font-semibold text-lg">{title}</h3>
-              {groupName && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Grupo: {groupName}
-                </p>
-              )}
+      <div className="p-4 space-y-3">
+         <Link href={`/events/${event.id}`} className="block cursor-pointer group">
+            <div className="flex justify-between items-start">
+                <div>
+                <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">{event.title}</h3>
+                </div>
+                <div className="px-2 py-1 rounded-md bg-accent/20 text-accent-foreground text-xs font-medium flex-shrink-0 ml-2">
+                  {formatDate(event.date)} • {formatTime(event.time)}
+                </div>
             </div>
-            <div className="px-2 py-1.5 rounded-md bg-accent/20 text-accent-foreground text-xs font-medium flex-shrink-0 ml-2">
-              {formatDate(date)} • {time}
+            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{event.description ?? 'Sem descrição'}</p>
+            <div className="flex items-center justify-between text-sm mt-2">
+                <div className="flex items-center text-muted-foreground">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    <span className="truncate max-w-[150px]">{event.location ?? 'Local não definido'}</span>
+                </div>
+                <div className="flex items-center text-muted-foreground">
+                    <Users className="h-4 w-4 mr-1" />
+                    <span>{event.attendees?.filter(a => a.status === 'confirmed').length ?? 0} confirmados</span>
+                </div>
             </div>
-          </div>
-          <p className="text-sm text-muted-foreground line-clamp-2">{description}</p>
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center text-muted-foreground">
-              <MapPin className="h-4 w-4 mr-1" />
-              <span className="truncate max-w-[150px]">{location}</span>
-            </div>
-            <div className="flex items-center text-muted-foreground">
-              <Users className="h-4 w-4 mr-1" />
-              <span>{attendeeCount} {attendeeCount === 1 ? "participante" : "participantes"}</span>
-            </div>
-          </div>
+        </Link>
           
-          {attendanceStatus && (
-            <div className={cn(
-              "mt-2 text-xs px-2 py-1 rounded border w-fit",
-              statusColors[attendanceStatus]
-            )}>
-              {attendanceStatus === 'confirmed' && 'Confirmado'}
-              {attendanceStatus === 'declined' && 'Recusado'}
-              {attendanceStatus === 'pending' && 'Pendente'}
+        {!isPast && authUser && (
+             <div className="mt-4 pt-3 border-t border-border flex items-center justify-center">
+                {currentStatus === 'confirmed' ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="w-full text-destructive border-destructive/50 hover:bg-red-100 hover:text-destructive/90 dark:hover:bg-red-900/20"
+                      onClick={() => setIsCancelConfirmOpen(true)}
+                      disabled={mutation.isPending}
+                    >
+                      {mutation.isPending && mutation.variables === 'declined' ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Cancelar participação
+                    </Button>
+
+                    <AlertDialog open={isCancelConfirmOpen} onOpenChange={setIsCancelConfirmOpen}>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmar Cancelamento</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja cancelar sua participação neste evento?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={mutation.isPending && mutation.variables === 'declined'}>Voltar</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => {
+                              handleRespond('declined');
+                            }}
+                            className="bg-destructive hover:bg-destructive/90"
+                            style={{ color: 'var(--destructive-foreground)' }}
+                            disabled={mutation.isPending}
+                           >
+                             {mutation.isPending && mutation.variables === 'declined' ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : null}
+                            Confirmar Cancelamento
+                           </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                ) : (
+                    <Button
+                      variant="default"
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      onClick={() => handleRespond('confirmed')}
+                      disabled={mutation.isPending}
+                    >
+                      {mutation.isPending && mutation.variables === 'confirmed' ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Confirmar participação
+                    </Button>
+                )}
             </div>
-          )}
-        </div>
-      </Link>
+        )}
+      </div>
     </motion.div>
   );
 }

@@ -6,6 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ChevronLeft, Bell } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface TopNavProps {
   title: string
@@ -13,10 +15,6 @@ interface TopNavProps {
   showNotifications?: boolean
   className?: string
   rightElement?: React.ReactNode
-  user?: {
-    name: string
-    avatar: string
-  }
 }
 
 export function TopNav({
@@ -25,8 +23,9 @@ export function TopNav({
   showNotifications = false,
   className,
   rightElement,
-  user,
 }: TopNavProps) {
+  const { data: currentUser, isLoading: isLoadingUser } = useCurrentUser();
+
   return (
     <motion.div
       initial={{ y: -20, opacity: 0 }}
@@ -77,20 +76,33 @@ export function TopNav({
           </Link>
         )}
         {rightElement}
-        {user && (
+        
+        {/* User Avatar Area */}
+        {isLoadingUser && (
+          <Skeleton className="h-8 w-8 rounded-full" />
+        )}
+        {!isLoadingUser && currentUser && (
           <Link href="/menu">
             <motion.div
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
             >
               <Avatar className="h-8 w-8 border-2 border-primary/20">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  {user.name.split(" ").map((n) => n[0]).join("")}
-                </AvatarFallback>
+                {currentUser.avatar ? (
+                  <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                ) : (
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    {currentUser.name?.split(" ").map((n) => n[0]).join("") ?? 'U'}
+                  </AvatarFallback>
+                )}
               </Avatar>
             </motion.div>
           </Link>
+        )}
+        {!isLoadingUser && !currentUser && (
+           <Link href="/auth/login">
+             <div className="h-8 w-8 rounded-full bg-muted border-2"></div>
+           </Link>
         )}
       </div>
     </motion.div>

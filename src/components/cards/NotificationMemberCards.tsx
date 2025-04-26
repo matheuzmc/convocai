@@ -1,6 +1,6 @@
 "use client"
 
-import * as React from "react"
+import React, { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { 
@@ -12,25 +12,30 @@ import {
   Users, 
   MessageSquare,
   ChevronRight,
-  ShieldCheck,
   Clock,
   MapPin,
   X,
   RefreshCcw,
   BadgeAlert,
-  Award
+  Award,
+  ShieldAlert
 } from "lucide-react"
 import { MemberDetails } from "@/components/ui-elements/MemberDetails"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { format, formatDistanceToNow, isToday, isYesterday } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useRouter } from "next/navigation"
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { markNotificationAsRead } from '@/services/api'
+import { createClient } from '@/lib/supabase/client';
+import { User as AuthUserType } from "@supabase/supabase-js";
+import { toast } from "sonner"
 
 interface NotificationCardProps {
   id: string
   title: string
   message: string
-  type: "info" | "success" | "warning"
+  type: "info" | "success" | "warning" | "error"
   isRead: boolean
   createdAt: string
   relatedId?: string
@@ -38,6 +43,7 @@ interface NotificationCardProps {
 }
 
 export function NotificationCard({
+  id,
   title,
   message,
   type,
@@ -47,14 +53,30 @@ export function NotificationCard({
   className,
 }: NotificationCardProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const supabase = createClient();
+  const [authUser, setAuthUser] = useState<AuthUserType | null>(null);
+  const [markedAsRead, setMarkedAsRead] = useState(isRead)
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setAuthUser(user);
+    };
+    getUser();
+  }, [supabase]);
+
   const typeIcons = {
     info: <Info className="h-5 w-5 text-primary" />,
     success: <Check className="h-5 w-5 text-green-500" />,
     warning: <AlertTriangle className="h-5 w-5 text-amber-500" />,
+    error: <ShieldAlert className="h-5 w-5 text-destructive" />
   }
 
   const getIconByTitle = (title: string) => {
     const lowerTitle = title.toLowerCase()
+    
+    if (lowerTitle.includes("erro")) return typeIcons.error
     
     // Notificações de eventos
     if (lowerTitle.includes("aproximando")) return <Calendar className="h-5 w-5 text-primary" />
@@ -94,21 +116,37 @@ export function NotificationCard({
     return format(date, "d 'de' MMM", { locale: ptBR })
   }
 
+  const markAsReadMutation = useMutation({
+    mutationFn: () => markNotificationAsRead(id),
+    onSuccess: () => {
+      console.log(`Notification ${id} marked as read via mutation.`)
+      setMarkedAsRead(true)
+      queryClient.invalidateQueries({ queryKey: ['unreadNotifications', authUser?.id] })
+      queryClient.invalidateQueries({ queryKey: ['allNotifications', authUser?.id] })
+    },
+    onError: (error) => {
+      console.error(`Error marking notification ${id} as read:`, error)
+      setMarkedAsRead(isRead)
+      toast.error(`Erro ao marcar notificação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
+    },
+  })
+
   const handleClick = () => {
+    if (!markedAsRead) {
+      markAsReadMutation.mutate()
+    }
+
     if (!relatedId) {
-      // Se não tiver relatedId, redireciona para a página de notificações
       router.push('/notifications')
       return
     }
 
     const lowerTitle = title.toLowerCase()
     
-    // Redireciona com base no contexto da notificação
     if (lowerTitle.includes("grupo") || 
         lowerTitle.includes("membro") || 
         lowerTitle.includes("convite para grupo") || 
         lowerTitle.includes("promovido")) {
-      // Notificações relacionadas a grupos
       router.push(`/groups/${relatedId}`)
     } else if (lowerTitle.includes("evento") || 
                lowerTitle.includes("aproximando") ||
@@ -119,10 +157,8 @@ export function NotificationCard({
                lowerTitle.includes("local") ||
                lowerTitle.includes("vagas") ||
                lowerTitle.includes("confirmação")) {
-      // Notificações relacionadas a eventos
       router.push(`/events/${relatedId}`)
     } else {
-      // Caso padrão, vai para a página de notificações
       router.push('/notifications')
     }
   }
@@ -136,11 +172,11 @@ export function NotificationCard({
       onClick={handleClick}
       className={cn(
         "relative overflow-hidden rounded-xl border bg-card transition-all cursor-pointer",
-        isRead ? "border-border" : "border-primary/40 shadow-sm",
+        markedAsRead ? "border-border opacity-70" : "border-primary/40 shadow-sm",
         className
       )}
     >
-      {!isRead && (
+      {!markedAsRead && (
         <div className="absolute right-0 top-0 -mt-px -mr-px">
           <div className="bg-primary text-primary-foreground text-[10px] font-medium px-2 py-0.5 rounded-bl-lg">
             Novo
@@ -158,7 +194,7 @@ export function NotificationCard({
             <div className="flex justify-between items-start gap-2 mb-1">
               <h3 className={cn(
                 "font-medium text-sm line-clamp-1", 
-                !isRead && "font-semibold text-foreground"
+                !markedAsRead && "font-semibold text-foreground"
               )}>
                 {title}
               </h3>
@@ -182,8 +218,8 @@ export function NotificationCard({
 interface MemberCardProps {
   id: string
   name: string
+  nickname?: string | null
   avatar: string
-  isAdmin?: boolean
   groupId: string
   className?: string
 }
@@ -191,12 +227,15 @@ interface MemberCardProps {
 export function MemberCard({
   id,
   name,
+  nickname,
   avatar,
-  isAdmin = false,
   groupId,
   className,
 }: MemberCardProps) {
   const [showDetails, setShowDetails] = React.useState(false);
+  
+  const primaryName = nickname || name;
+  const secondaryName = nickname ? name : null;
 
   return (
     <>
@@ -213,26 +252,21 @@ export function MemberCard({
             {avatar ? (
               <AvatarImage
                 src={avatar}
-                alt={name}
+                alt={primaryName}
                 className="object-cover"
               />
             ) : (
               <AvatarFallback>
-                {name.split(" ").map((n) => n[0]).join("")}
+                {primaryName.split(" ").map((n) => n[0]).join("").toUpperCase() || 'M'}
               </AvatarFallback>
             )}
           </Avatar>
         </div>
-        <div className="flex-1">
-          <h3 className="font-medium text-sm">{name}</h3>
-          <div className="flex items-center gap-1">
-            {isAdmin && (
-              <div className="flex items-center text-xs text-muted-foreground">
-                <ShieldCheck className="h-3 w-3 mr-0.5" />
-                <span>Admin</span>
-              </div>
-            )}
-          </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-sm truncate">{primaryName}</h3>
+          {secondaryName && (
+              <p className="text-xs text-muted-foreground truncate">{secondaryName}</p>
+          )}
         </div>
       </motion.div>
 

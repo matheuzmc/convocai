@@ -9,24 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { BellRing, Moon, Smartphone, Sun } from "lucide-react";
+import { BellRing, Smartphone, Sun } from "lucide-react";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const [darkMode, setDarkMode] = React.useState(false);
+  const [isLightMode, setIsLightMode] = React.useState(false);
   const [notifications, setNotifications] = React.useState(true);
   const [mounted, setMounted] = React.useState(false);
 
-  // Evitar problemas de hidratação
   useEffect(() => {
     setMounted(true);
-    setDarkMode(theme === "dark");
+    setIsLightMode(theme === "light");
   }, [theme]);
 
-  // Atualizar tema quando o switch do modo escuro muda
-  const handleDarkModeToggle = (checked: boolean) => {
-    setDarkMode(checked);
-    setTheme(checked ? "dark" : "light");
+  const handleThemeToggle = (checked: boolean) => {
+    setIsLightMode(checked);
+    setTheme(checked ? "light" : "dark");
   };
 
   if (!mounted) {
@@ -38,25 +36,25 @@ export default function SettingsPage() {
       header={<TopNav title="Configurações" backHref="/menu" />}
       footer={<BottomNav />}
     >
-      <div className="space-y-6">
+      <div className="space-y-6 p-4">
         <Card>
           <CardContent className="p-4 space-y-4">
             <h3 className="text-lg font-medium">Aparência</h3>
             
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {darkMode ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+                <Sun className="h-5 w-5" />
                 <div>
-                  <Label htmlFor="dark-mode">Modo escuro</Label>
+                  <Label htmlFor="dark-mode">Modo claro</Label>
                   <p className="text-sm text-muted-foreground">
-                    Alterar para tema escuro
+                    Ativar o tema claro
                   </p>
                 </div>
               </div>
               <Switch 
-                id="dark-mode" 
-                checked={darkMode}
-                onCheckedChange={handleDarkModeToggle}
+                id="theme-toggle" 
+                checked={isLightMode}
+                onCheckedChange={handleThemeToggle}
               />
             </div>
           </CardContent>

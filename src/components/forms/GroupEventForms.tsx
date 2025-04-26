@@ -31,15 +31,17 @@ interface EventFormProps {
   onSubmit: (data: EventFormData) => void;
   initialData?: Partial<EventFormData>;
   isEdit?: boolean;
+  isLoading?: boolean;
 }
 
 interface GroupFormProps {
   onSubmit: (data: GroupFormData) => void;
   initialData?: Partial<GroupFormData>;
   isEdit?: boolean;
+  isLoading?: boolean;
 }
 
-export function EventForm({ onSubmit, initialData, isEdit = false }: EventFormProps) {
+export function EventForm({ onSubmit, initialData, isEdit = false, isLoading = false }: EventFormProps) {
   const [isPeriodic, setIsPeriodic] = React.useState(initialData?.isPeriodic || false);
   const [frequency, setFrequency] = React.useState(initialData?.frequency || 'weekly');
   const [notifyBefore, setNotifyBefore] = React.useState(initialData?.notifyBefore || '24');
@@ -70,6 +72,7 @@ export function EventForm({ onSubmit, initialData, isEdit = false }: EventFormPr
             name="title"
             placeholder="Ex: Partida de futebol"
             defaultValue={initialData?.title || ''}
+            disabled={isLoading}
             required
           />
         </div>
@@ -82,6 +85,7 @@ export function EventForm({ onSubmit, initialData, isEdit = false }: EventFormPr
             placeholder="Detalhes sobre o evento"
             defaultValue={initialData?.description || ''}
             className="min-h-[100px]"
+            disabled={isLoading}
           />
         </div>
         
@@ -96,6 +100,7 @@ export function EventForm({ onSubmit, initialData, isEdit = false }: EventFormPr
                 type="date"
                 className="pl-9"
                 defaultValue={initialData?.date || ''}
+                disabled={isLoading}
                 required
               />
             </div>
@@ -111,6 +116,7 @@ export function EventForm({ onSubmit, initialData, isEdit = false }: EventFormPr
                 type="time"
                 className="pl-9"
                 defaultValue={initialData?.time || ''}
+                disabled={isLoading}
                 required
               />
             </div>
@@ -127,6 +133,7 @@ export function EventForm({ onSubmit, initialData, isEdit = false }: EventFormPr
               placeholder="Endereço do evento"
               className="pl-9"
               defaultValue={initialData?.location || ''}
+              disabled={isLoading}
               required
             />
           </div>
@@ -146,13 +153,14 @@ export function EventForm({ onSubmit, initialData, isEdit = false }: EventFormPr
             id="is-periodic" 
             checked={isPeriodic}
             onCheckedChange={setIsPeriodic}
+            disabled={isLoading}
           />
         </div>
         
         {isPeriodic && (
           <div className="space-y-2 pl-6 border-l-2 border-muted">
             <Label htmlFor="frequency">Frequência</Label>
-            <Select value={frequency} onValueChange={setFrequency}>
+            <Select value={frequency} onValueChange={setFrequency} disabled={isLoading}>
               <SelectTrigger id="frequency">
                 <SelectValue />
               </SelectTrigger>
@@ -167,7 +175,7 @@ export function EventForm({ onSubmit, initialData, isEdit = false }: EventFormPr
         
         <div className="space-y-2">
           <Label htmlFor="notify-before">Notificar membros</Label>
-          <Select value={notifyBefore} onValueChange={setNotifyBefore}>
+          <Select value={notifyBefore} onValueChange={setNotifyBefore} disabled={isLoading}>
             <SelectTrigger id="notify-before">
               <SelectValue />
             </SelectTrigger>
@@ -183,14 +191,14 @@ export function EventForm({ onSubmit, initialData, isEdit = false }: EventFormPr
         </div>
       </div>
       
-      <Button type="submit" className="w-full">
-        {isEdit ? 'Salvar alterações' : 'Criar evento'}
+      <Button type="submit" className="w-full" disabled={isLoading}>
+        {isLoading ? 'Criando...' : (isEdit ? 'Salvar Alterações' : 'Criar Evento')}
       </Button>
     </form>
   );
 }
 
-export function GroupForm({ onSubmit, initialData, isEdit = false }: GroupFormProps) {
+export function GroupForm({ onSubmit, initialData, isEdit = false, isLoading = false }: GroupFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
@@ -211,8 +219,9 @@ export function GroupForm({ onSubmit, initialData, isEdit = false }: GroupFormPr
           <Input
             id="name"
             name="name"
-            placeholder="Ex: Futebol dos Amigos"
+            placeholder="Ex: Futebol das Terças"
             defaultValue={initialData?.name || ''}
+            disabled={isLoading}
             required
           />
         </div>
@@ -222,15 +231,16 @@ export function GroupForm({ onSubmit, initialData, isEdit = false }: GroupFormPr
           <Textarea
             id="description"
             name="description"
-            placeholder="Descreva o propósito do grupo"
+            placeholder="Objetivo, regras, etc."
             defaultValue={initialData?.description || ''}
             className="min-h-[100px]"
+            disabled={isLoading}
           />
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="sport">Esporte</Label>
-          <Select defaultValue={initialData?.sport || 'futebol'} name="sport">
+          <Label htmlFor="sport">Esporte Principal</Label>
+          <Select name="sport" defaultValue={initialData?.sport || 'futebol'} disabled={isLoading}>
             <SelectTrigger id="sport">
               <SelectValue />
             </SelectTrigger>
@@ -238,41 +248,40 @@ export function GroupForm({ onSubmit, initialData, isEdit = false }: GroupFormPr
               <SelectItem value="futebol">Futebol</SelectItem>
               <SelectItem value="basquete">Basquete</SelectItem>
               <SelectItem value="vôlei">Vôlei</SelectItem>
+              <SelectItem value="futsal">Futsal</SelectItem>
+              <SelectItem value="beach_tennis">Beach Tennis</SelectItem>
               <SelectItem value="tênis">Tênis</SelectItem>
               <SelectItem value="corrida">Corrida</SelectItem>
               <SelectItem value="ciclismo">Ciclismo</SelectItem>
               <SelectItem value="natação">Natação</SelectItem>
               <SelectItem value="handebol">Handebol</SelectItem>
-              <SelectItem value="futsal">Futsal</SelectItem>
-              <SelectItem value="beach_tennis">Beach Tennis</SelectItem>
               <SelectItem value="outro">Outro</SelectItem>
             </SelectContent>
           </Select>
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="image">Imagem do grupo</Label>
-          <div className="border rounded-md p-4 text-center">
-            <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground mb-2">
-              Arraste uma imagem ou clique para fazer upload
-            </p>
+          <Label htmlFor="image">Imagem do Grupo (URL)</Label>
+          <div className="relative">
+            <UploadCloud className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="image"
               name="image"
-              type="file"
-              accept="image/*"
-              className="hidden"
+              placeholder="https://exemplo.com/imagem.jpg"
+              className="pl-9"
+              defaultValue={initialData?.image || ''}
+              type="url"
+              disabled={isLoading}
             />
-            <Button type="button" variant="outline" size="sm">
-              Selecionar imagem
-            </Button>
           </div>
+           <p className="text-xs text-muted-foreground">
+             Opcional. Cole a URL de uma imagem para o grupo.
+           </p>
         </div>
       </div>
       
-      <Button type="submit" className="w-full">
-        {isEdit ? 'Salvar alterações' : 'Criar grupo'}
+      <Button type="submit" className="w-full" disabled={isLoading}>
+        {isLoading ? 'Criando...' : (isEdit ? 'Salvar Alterações' : 'Criar Grupo')}
       </Button>
     </form>
   );

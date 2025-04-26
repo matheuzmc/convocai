@@ -43,7 +43,7 @@ export default function HelpPage() {
       header={<TopNav title="Ajuda e Suporte" backHref="/menu" />}
       footer={<BottomNav />}
     >
-      <div className="space-y-6">
+      <div className="space-y-6 p-4">
         <Tabs defaultValue="faq">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="faq">FAQ</TabsTrigger>

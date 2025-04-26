@@ -5,35 +5,29 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, Share2, Calendar, History } from "lucide-react";
+import { Copy, Share2 } from "lucide-react";
 import Link from "next/link";
 import { EventCard } from "@/components/cards/GroupEventCards";
 import { MemberCard } from "@/components/cards/NotificationMemberCards";
-import { getGroupById } from "@/lib/mockData";
+import { Event as EventType } from "@/lib/types";
+import { GroupMemberWithProfile } from "@/lib/types";
+
+// Placeholder function (replace with actual data fetching if needed)
+/* // Removed unused placeholder function
+const getGroupById = (groupId: string): Group | null => {
+  // TODO: Replace with actual API call to get group by ID
+  console.warn(`Placeholder function getGroupById called for group ${groupId}`);
+  return null; 
+};
+*/
 
 // Interfaces para tipagem
+/* // Removed unused interface
 interface Attendee {
   userId: string;
   status: 'confirmed' | 'pending' | 'declined';
 }
-
-interface Event {
-  id: string;
-  title: string;
-  description: string;
-  location: string;
-  date: string;
-  time: string;
-  attendees: Attendee[];
-  groupId: string;
-}
-
-interface Member {
-  id: string;
-  name: string;
-  avatar: string;
-  isAdmin?: boolean;
-}
+*/
 
 interface InviteDialogProps {
   open: boolean;
@@ -173,38 +167,60 @@ export function GroupTabs({
   events = [], 
   members = [], 
   groupId = "", 
-  isAdmin = false
+  isAdmin = false,
+  groupName = "Grupo",
+  description = "Descrição não fornecida"
 }: { 
-  events?: Event[], 
-  members?: Member[], 
+  events?: EventType[],
+  members?: GroupMemberWithProfile[],
   groupId?: string,
-  isAdmin?: boolean
+  isAdmin?: boolean,
+  groupName?: string,
+  description?: string
 }) {
   const [historyDialogOpen, setHistoryDialogOpen] = React.useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = React.useState(false);
   
-  // Filtrar eventos por data
+  // TODO: Fetch group details if needed, e.g., for invite link generation
+  // const group = getGroupById(groupId);
+  const inviteLink = groupId ? `${window.location.origin}/groups/${groupId}/join` : "#"; // Placeholder invite link
+
+  // Filtrar eventos por data (comparando apenas a data, ignorando hora/fuso)
   const today = new Date();
+  today.setHours(0, 0, 0, 0); // Zera a hora para comparar apenas a data
+
   const upcomingEvents = events
     .filter(event => {
-      const eventDate = new Date(`${event.date}T${event.time}`);
+      // Assume event.date está no formato YYYY-MM-DD
+      // Cria a data do evento no início do dia para evitar problemas de fuso/hora
+      const eventDateParts = event.date.split('-').map(Number);
+      // new Date(year, monthIndex, day) - monthIndex é 0-based
+      const eventDate = new Date(eventDateParts[0], eventDateParts[1] - 1, eventDateParts[2]);
+      eventDate.setHours(0, 0, 0, 0); 
       return eventDate >= today;
     })
     .sort((a, b) => {
+      // Ordenar primeiro por data, depois por hora
       const dateA = new Date(`${a.date}T${a.time}`);
       const dateB = new Date(`${b.date}T${b.time}`);
-      return dateA.getTime() - dateB.getTime();
+      if (a.date !== b.date) {
+         return dateA.getTime() - dateB.getTime(); // Compara a data completa se diferentes
+      }
+      // Se a data for a mesma, ordena pela hora (opcional, mas pode ser útil)
+      return dateA.getTime() - dateB.getTime(); // A comparação original já fazia isso
     });
     
   const pastEvents = events
     .filter(event => {
-      const eventDate = new Date(`${event.date}T${event.time}`);
+      const eventDateParts = event.date.split('-').map(Number);
+      const eventDate = new Date(eventDateParts[0], eventDateParts[1] - 1, eventDateParts[2]);
+      eventDate.setHours(0, 0, 0, 0);
       return eventDate < today;
     })
     .sort((a, b) => {
       const dateA = new Date(`${a.date}T${a.time}`);
       const dateB = new Date(`${b.date}T${b.time}`);
-      return dateB.getTime() - dateA.getTime(); // Mais recentes primeiro
+      return dateB.getTime() - dateA.getTime(); // Mais recentes primeiro (ordenação ok)
     });
 
   return (
@@ -217,45 +233,33 @@ export function GroupTabs({
         </TabsList>
         
         <TabsContent value="about" className="mt-4 space-y-4">
-          <div className="space-y-2">
-            <h3 className="text-lg font-medium">Descrição</h3>
-            <p className="text-muted-foreground text-sm">
-              Este grupo foi criado para reunir pessoas que compartilham o interesse pelo esporte e desejam participar de atividades regulares.
+          <div className="space-y-2 w-full">
+            <p className="text-muted-foreground text-sm whitespace-pre-wrap break-words w-full">
+              {description}
             </p>
-          </div>
-          
-          <div className="space-y-2">
-            <h3 className="text-lg font-medium">Regras</h3>
-            <ul className="text-muted-foreground text-sm space-y-1 list-disc pl-5">
-              <li>Respeite todos os membros</li>
-              <li>Confirme presença com antecedência</li>
-              <li>Chegue no horário marcado</li>
-              <li>Avise se não puder comparecer</li>
-            </ul>
           </div>
         </TabsContent>
         
         <TabsContent value="events" className="mt-4 space-y-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
+          <div className="flex items-start justify-between">
+            <div>
               <h3 className="text-lg font-medium">Próximos Eventos</h3>
               {pastEvents.length > 0 && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-8 w-8 rounded-full" 
+                <button 
+                  type="button"
+                  className="text-xs text-primary hover:underline bg-transparent border-none p-0 h-auto mt-1 inline-block cursor-pointer"
                   onClick={() => setHistoryDialogOpen(true)}
                   title="Ver histórico de eventos"
                 >
-                  <History className="h-4 w-4 text-muted-foreground" />
-                </Button>
+                  Ver histórico de eventos
+                </button>
               )}
             </div>
             
             {isAdmin && groupId && (
-              <Button size="sm" asChild>
+              <Button size="sm" asChild className="mt-1">
                 <Link href={`/groups/${groupId}/events/create`}>
-                  <Calendar className="h-4 w-4 mr-1" /> Novo Evento
+                  Criar Novo Evento
                 </Link>
               </Button>
             )}
@@ -270,14 +274,7 @@ export function GroupTabs({
               {upcomingEvents.map((event) => (
                 <EventCard
                   key={event.id}
-                  id={event.id}
-                  title={event.title}
-                  description={event.description}
-                  location={event.location}
-                  date={event.date}
-                  time={event.time}
-                  attendeeCount={event.attendees.filter((a: Attendee) => a.status === 'confirmed').length}
-                  isPast={false}
+                  event={event}
                 />
               ))}
             </div>
@@ -302,8 +299,10 @@ export function GroupTabs({
                     <MemberCard
                       key={member.id}
                       id={member.id}
-                      name={member.name}
-                      avatar={member.avatar}
+                      name={`${member.name || ''} ${member.last_name || ''}`.trim()}
+                      lastName={member.last_name}
+                      nickname={member.nickname}
+                      avatar={member.avatar || ''}
                       isAdmin={true}
                       groupId={groupId}
                     />
@@ -319,8 +318,10 @@ export function GroupTabs({
                     <MemberCard
                       key={member.id}
                       id={member.id}
-                      name={member.name}
-                      avatar={member.avatar}
+                      name={`${member.name || ''} ${member.last_name || ''}`.trim()}
+                      lastName={member.last_name}
+                      nickname={member.nickname}
+                      avatar={member.avatar || ''}
                       isAdmin={false}
                       groupId={groupId}
                     />
@@ -350,14 +351,7 @@ export function GroupTabs({
                 {pastEvents.map((event) => (
                   <EventCard
                     key={event.id}
-                    id={event.id}
-                    title={event.title}
-                    description={event.description}
-                    location={event.location}
-                    date={event.date}
-                    time={event.time}
-                    attendeeCount={event.attendees.filter((a: Attendee) => a.status === 'confirmed').length}
-                    isPast={true}
+                    event={event}
                   />
                 ))}
               </div>
@@ -370,8 +364,8 @@ export function GroupTabs({
         <InviteDialog
           open={inviteDialogOpen}
           onOpenChange={setInviteDialogOpen}
-          groupName={getGroupById(groupId)?.name || "Grupo"}
-          inviteLink={`https://sportsgroupapp.com/invite/${groupId}`}
+          groupName={groupName}
+          inviteLink={inviteLink}
         />
       )}
     </>
