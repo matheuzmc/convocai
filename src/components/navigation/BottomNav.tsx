@@ -18,7 +18,7 @@ export function BottomNav({ className }: BottomNavProps) {
     <motion.div 
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.1 }}
       className={cn(
         "h-16 px-4 flex items-center justify-between bg-background elevation-2 border-t border-border",
         className

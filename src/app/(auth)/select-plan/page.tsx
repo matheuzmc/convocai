@@ -7,8 +7,8 @@ import { Check } from "lucide-react";
 
 export default function SelectPlanPage() {
   return (
-    <MobileLayout className="flex flex-col justify-center items-center py-10">
-      <div className="w-full max-w-sm space-y-8">
+    <MobileLayout>
+      <div className="w-full max-w-sm space-y-8 px-4 py-20 mx-auto">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold">Escolha seu plano</h1>
           <p className="text-muted-foreground">

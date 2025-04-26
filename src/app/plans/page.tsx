@@ -6,12 +6,29 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, X, CreditCard, Zap, Users, Calendar } from "lucide-react";
-import { getCurrentUser } from "@/lib/mockData";
 import Link from "next/link";
+import { User } from "@/lib/types"; // Import User type
+
+// Placeholder function (replace with actual data fetching)
+const getCurrentUser = (): User | null => {
+  // TODO: Replace with actual API call
+  console.warn("Placeholder function getCurrentUser called");
+  // Return a non-premium user for testing the UI state
+  return { 
+    id: 'placeholder-user', 
+    name: 'Usuário Teste', 
+    email: 'teste@exemplo.com', 
+    avatar: '', 
+    isPremium: false, 
+    groups: [], 
+    createdGroups: [], 
+    sportPreferences: [] 
+  };
+};
 
 export default function PlansPage() {
-  // Simulando dados do usuário
-  const currentUser = getCurrentUser();
+  // Get data using placeholders
+  const currentUser = getCurrentUser(); // Will be placeholder user for now
   
   const plans = [
     {
@@ -29,7 +46,7 @@ export default function PlansPage() {
         { text: "Membros ilimitados", included: false },
         { text: "Estatísticas avançadas", included: false },
       ],
-      current: !currentUser.isPremium,
+      current: !currentUser?.isPremium, // Use optional chaining
     },
     {
       id: "premium",
@@ -46,16 +63,28 @@ export default function PlansPage() {
         { text: "Personalização de grupo", included: true },
         { text: "Exportação de dados", included: true },
       ],
-      current: currentUser.isPremium,
+      current: currentUser?.isPremium ?? false, // Use optional chaining and nullish coalescing
     }
   ];
+
+  // Show loading state if currentUser is initially null
+  if (currentUser === null) {
+    return (
+      <MobileLayout
+        header={<TopNav title="Planos e Assinatura" backHref="/menu" />}
+        footer={<BottomNav />}
+      >
+        <div className="p-4 text-center">Carregando planos...</div>
+      </MobileLayout>
+    );
+  }
 
   return (
     <MobileLayout
       header={<TopNav title="Planos e Assinatura" backHref="/menu" />}
       footer={<BottomNav />}
     >
-      <div className="space-y-6">
+      <div className="space-y-6 p-4">
         <div className="text-center py-2">
           <h2 className="text-xl font-semibold">Escolha seu plano</h2>
           <p className="text-sm text-muted-foreground mt-1">
@@ -115,7 +144,7 @@ export default function PlansPage() {
           ))}
         </div>
 
-        {currentUser.isPremium && (
+        {currentUser?.isPremium && (
           <Card>
             <CardContent className="p-4 space-y-4">
               <h3 className="text-lg font-medium">Detalhes da Assinatura</h3>

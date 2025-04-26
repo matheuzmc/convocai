@@ -9,7 +9,6 @@ interface MobileLayoutProps {
   footer?: React.ReactNode
   children: React.ReactNode
   className?: string
-  noTopPadding?: boolean
 }
 
 export function MobileLayout({
@@ -17,7 +16,6 @@ export function MobileLayout({
   footer,
   children,
   className,
-  noTopPadding = false,
 }: MobileLayoutProps) {
   // Variantes de animação para o container principal
   const containerVariants = {
@@ -25,7 +23,7 @@ export function MobileLayout({
     visible: { 
       opacity: 1,
       transition: { 
-        duration: 0.3,
+        duration: 0.1,
         when: "beforeChildren",
         staggerChildren: 0.1
       }
@@ -34,14 +32,10 @@ export function MobileLayout({
 
   // Variantes de animação para os elementos filhos
   const childVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 0 },
     visible: { 
       opacity: 1, 
       y: 0,
-      transition: { 
-        type: "spring", 
-        damping: 15 
-      }
     }
   }
 
@@ -55,7 +49,7 @@ export function MobileLayout({
         animate="visible"
         className={cn(
           "flex-1 overflow-auto",
-          noTopPadding ? "pt-0 px-4 pb-20" : "p-4 pb-20",
+          "pb-20",
           className
         )}
       >

@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
@@ -5,17 +7,30 @@ import { BottomNav } from "@/components/navigation/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getCurrentUser } from "@/lib/mockData";
-import { LogOut, User, CreditCard, Settings, HelpCircle } from "lucide-react";
+import { LogOut, User as UserIcon, CreditCard, Settings, HelpCircle } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 export default function MenuPage() {
-  // Simulando dados do usuário
-  const currentUser = getCurrentUser();
+  const router = useRouter();
+  const supabase = createClient();
+  const { data: currentUser, isLoading, error } = useCurrentUser();
+
+  const handleLogout = async () => {
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) {
+      console.error("Error logging out:", signOutError);
+    } else {
+      router.push('/login');
+    }
+  };
 
   const menuItems = [
     {
-      icon: <User className="h-5 w-5" />,
+      icon: <UserIcon className="h-5 w-5" />,
       title: "Perfil",
       href: "/profile",
     },
@@ -36,34 +51,52 @@ export default function MenuPage() {
     },
   ];
 
+  const displayName = currentUser?.name || currentUser?.email || "Usuário";
+  const fallbackInitials = displayName?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "U";
+  const avatarUrl = currentUser?.avatar;
+
+  if (error) {
+    return (
+      <MobileLayout
+        header={<TopNav title="Menu" />}
+        footer={<BottomNav />}
+      >
+        <div className="p-4 text-center text-destructive">Erro ao carregar dados do usuário.</div>
+      </MobileLayout>
+    );
+  }
+
   return (
     <MobileLayout
-      header={<TopNav title="Menu" showNotifications user={currentUser} />}
+      header={<TopNav title="Menu" showNotifications />}
       footer={<BottomNav />}
     >
-      <div className="space-y-6">
+      <div className="space-y-6 p-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
-                <AvatarFallback>
-                  {currentUser.name.split(" ").map((n) => n[0]).join("")}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <h2 className="text-xl font-semibold">{currentUser.name}</h2>
-                <p className="text-sm text-muted-foreground">{currentUser.email}</p>
-                <p className="text-sm mt-1">
-                  <span className={`px-2 py-0.5 rounded-full text-xs ${
-                    currentUser.isPremium 
-                      ? "bg-primary/10 text-primary" 
-                      : "bg-muted text-muted-foreground"
-                  }`}>
-                    {currentUser.isPremium ? "Plano Premium" : "Plano Gratuito"}
-                  </span>
-                </p>
-              </div>
+              {isLoading ? (
+                <Skeleton className="h-16 w-16 rounded-full" />
+              ) : (
+                <Avatar className="h-16 w-16">
+                  {avatarUrl ? (
+                    <AvatarImage src={avatarUrl} alt={displayName} key={avatarUrl} />
+                  ) : (
+                    <AvatarFallback>{fallbackInitials}</AvatarFallback>
+                  )}
+                </Avatar>
+              )}
+              {isLoading ? (
+                <div className="space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-40" />
+                </div>
+               ) : (
+                <div>
+                  <h2 className="text-xl font-semibold">{displayName}</h2>
+                  <p className="text-sm text-muted-foreground">{currentUser?.email ?? "Email não disponível"}</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -81,10 +114,8 @@ export default function MenuPage() {
           ))}
         </div>
 
-        <Button variant="outline" className="w-full" asChild>
-          <Link href="/auth/login">
-            <LogOut className="h-4 w-4 mr-2" /> Sair
-          </Link>
+        <Button variant="outline" className="w-full" onClick={handleLogout} disabled={isLoading}>
+          <LogOut className="h-4 w-4 mr-2" /> Sair
         </Button>
       </div>
     </MobileLayout>
