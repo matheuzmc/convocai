@@ -234,7 +234,6 @@ export default function DashboardPage() {
                   key={group.id}
                   id={group.id}
                   name={group.name}
-                  description={group.description ?? ''}
                   sport={group.sport}
                   image={group.image}
                   memberCount={group.memberCount ?? 0}

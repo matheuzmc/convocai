@@ -13,9 +13,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; 
 import { useCurrentUser } from "@/hooks/useCurrentUser"; 
-import { getEventDetails, respondToEvent } from "@/services/api"; 
+import { getEventDetails, respondToEvent, EventDetailsRpcResponse } from "@/services/api"; 
 import { toast } from "sonner"; 
-import { EventDetailsData } from "@/lib/types"; 
 import { MemberDetails } from "@/components/ui-elements/MemberDetails";
 import {
   AlertDialog,
@@ -40,6 +39,9 @@ const InlineResponseButtons = ({
   return <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0" />;
 };
 
+// Adicionar definição do tipo auxiliar
+type AttendeeWithProfile = EventDetailsRpcResponse['attendees'][number];
+
 export default function EventDetailsPage() {
   const params = useParams();
   const eventId = params.id as string;
@@ -51,7 +53,7 @@ export default function EventDetailsPage() {
     data: eventDetails, 
     isLoading: isLoadingEvent, 
     error: eventError 
-  } = useQuery<EventDetailsData | null>({
+  } = useQuery<EventDetailsRpcResponse | null>({
     queryKey: ['eventDetails', eventId], 
     queryFn: () => getEventDetails(eventId),
     enabled: !!eventId && !!currentUser,
@@ -85,10 +87,11 @@ export default function EventDetailsPage() {
     }
   }, [eventDetails]);
 
-  const confirmedAttendees = attendees.filter(a => a.status === 'confirmed');
-  const declinedAttendees = attendees.filter(a => a.status === 'declined');
-  const pendingAttendees = attendees.filter(a => a.status === 'pending');
-  const currentUserAttendee = attendees.find(att => att.userId === currentUser?.id);
+  // Tipar parâmetros aqui
+  const confirmedAttendees = attendees.filter((a: AttendeeWithProfile) => a.status === 'confirmed');
+  const declinedAttendees = attendees.filter((a: AttendeeWithProfile) => a.status === 'declined');
+  const pendingAttendees = attendees.filter((a: AttendeeWithProfile) => a.status === 'pending');
+  const currentUserAttendee = attendees.find((att: AttendeeWithProfile) => att.userId === currentUser?.id);
   const currentStatus = currentUserAttendee?.status ?? 'pending';
   const isPast = event ? new Date(event.date + 'T00:00:00') < new Date(new Date().toDateString()) : false;
 
@@ -239,7 +242,18 @@ export default function EventDetailsPage() {
   return (
     <>
     <MobileLayout
-        header={<TopNav title={event.title} backHref={`/groups/${group.id}`} showNotifications />}
+        header={<TopNav 
+            title={event.title} 
+            backHref={`/groups/${group.id}`} 
+            showNotifications 
+            rightElement={isAdmin && !isPast ? (
+                <Link href={`/events/${eventId}/edit`}>
+                    <Button variant="ghost" size="icon">
+                        <Pencil className="h-5 w-5" />
+                    </Button>
+                </Link>
+            ) : null}
+        />}
       footer={<BottomNav />}
       >
         <div className="space-y-6 p-4">
@@ -248,17 +262,18 @@ export default function EventDetailsPage() {
               <div className="flex-grow min-w-0">
                   <h1 className="text-2xl font-bold leading-tight break-words">{event.title}</h1>
                   <Link href={`/groups/${group.id}`} className="text-xs text-primary hover:underline block mt-1 truncate">
-                    {group.name}
+                     {group.image_url && (
+                       <Avatar className="inline-block h-4 w-4 mr-1 align-middle">
+                         <AvatarImage src={group.image_url} alt={group.name ?? 'Grupo'} />
+                         <AvatarFallback>{group.name?.charAt(0)?.toUpperCase() ?? 'G'}</AvatarFallback>
+                       </Avatar>
+                     )}
+                     {group.name}
                   </Link>
               </div>
-              {isAdmin && (
-                  <Button variant="outline" size="icon" className="flex-shrink-0" asChild>
-                      <Link href={`/groups/${group.id}/events/${event.id}/edit`}>
-                          <Pencil className="h-4 w-4" />
-                          <span className="sr-only">Editar Evento</span>
-                      </Link>
-                  </Button>
-              )}
+              {isPast && (
+                    <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded flex-shrink-0">Passado</span>
+                )}
             </div>
 
             <div className="border bg-card rounded-lg shadow-sm overflow-hidden mt-4"> 
@@ -447,23 +462,12 @@ export default function EventDetailsPage() {
                              <div className="pt-4">
                               <h3 className="text-sm font-medium text-muted-foreground">Confirmados</h3>
           </div>
-                            {confirmedAttendees.map((attendee) => (
-                              <div
-                                key={attendee.userId}
-                                className="p-3 rounded-lg border border-border bg-card flex items-center justify-between gap-3"
-                              >
-                                <div 
-                                  className="flex items-center gap-3 flex-grow min-w-0 cursor-pointer" 
-                                  onClick={() => handleMemberClick(attendee.userId)}
-                                >
+                            {confirmedAttendees.map((attendee: AttendeeWithProfile) => (
+                              <div key={attendee.userId} className="flex items-center justify-between gap-3 p-3 border rounded-lg bg-card cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleMemberClick(attendee.userId)}>
+                                <div className="flex items-center gap-3 flex-grow min-w-0">
                                   <Avatar className="h-10 w-10">
-                                    {attendee.profile?.avatar_url ? (
-                                      <AvatarImage src={attendee.profile.avatar_url} alt={attendee.profile.name ?? 'Avatar'} />
-                                    ) : (
-                                      <AvatarFallback>
-                                        {attendee.profile?.name?.split(" ").map((n) => n[0]).join("").toUpperCase() ?? 'U'}
-                                      </AvatarFallback>
-                                    )}
+                                    <AvatarImage src={attendee.profile?.avatar_url ?? ''} alt={attendee.profile?.name ?? 'Avatar'} />
+                                    <AvatarFallback>{attendee.profile?.name?.charAt(0)?.toUpperCase() ?? '?'}</AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1 min-w-0">
                                     {attendee.profile?.nickname ? (
@@ -495,20 +499,12 @@ export default function EventDetailsPage() {
                             <div className="pt-4">
                               <h3 className="text-sm font-medium text-muted-foreground">Cancelados</h3>
                             </div>
-                            {declinedAttendees.map((attendee) => (
-                              <div 
-                                key={attendee.userId} 
-                                className="p-3 rounded-lg border border-border bg-card flex items-center justify-between gap-3"
-                              >
-                                <div className="flex items-center gap-3 flex-grow min-w-0 cursor-pointer" onClick={() => handleMemberClick(attendee.userId)}>
+                            {declinedAttendees.map((attendee: AttendeeWithProfile) => (
+                              <div key={attendee.userId} className="flex items-center justify-between gap-3 p-3 border rounded-lg bg-card cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleMemberClick(attendee.userId)}>
+                                <div className="flex items-center gap-3 flex-grow min-w-0">
                                   <Avatar className="h-10 w-10">
-                                    {attendee.profile?.avatar_url ? (
-                                      <AvatarImage src={attendee.profile.avatar_url} alt={attendee.profile.name ?? 'Avatar'} />
-                                    ) : (
-                                      <AvatarFallback>
-                                        {attendee.profile?.name?.split(" ").map((n) => n[0]).join("").toUpperCase() ?? 'U'}
-                                      </AvatarFallback>
-                                    )}
+                                    <AvatarImage src={attendee.profile?.avatar_url ?? ''} alt={attendee.profile?.name ?? 'Avatar'} />
+                                    <AvatarFallback>{attendee.profile?.name?.charAt(0)?.toUpperCase() ?? '?'}</AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1 min-w-0">
                                     {attendee.profile?.nickname ? (
@@ -540,20 +536,12 @@ export default function EventDetailsPage() {
                             <div className="pt-4">
                               <h3 className="text-sm font-medium text-muted-foreground">Pendentes</h3>
                             </div>
-                            {pendingAttendees.map((attendee) => (
-                              <div 
-                                key={attendee.userId} 
-                                className="p-3 rounded-lg border border-border bg-card flex items-center justify-between gap-3"
-                              >
-                                <div className="flex items-center gap-3 flex-grow min-w-0 cursor-pointer" onClick={() => handleMemberClick(attendee.userId)}>
+                            {pendingAttendees.map((attendee: AttendeeWithProfile) => (
+                              <div key={attendee.userId} className="flex items-center justify-between gap-3 p-3 border rounded-lg bg-card cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleMemberClick(attendee.userId)}>
+                                <div className="flex items-center gap-3 flex-grow min-w-0">
                                   <Avatar className="h-10 w-10">
-                                    {attendee.profile?.avatar_url ? (
-                                      <AvatarImage src={attendee.profile.avatar_url} alt={attendee.profile.name ?? 'Avatar'} />
-                                    ) : (
-                                      <AvatarFallback>
-                                        {attendee.profile?.name?.split(" ").map((n) => n[0]).join("").toUpperCase() ?? 'U'}
-                                      </AvatarFallback>
-                                    )}
+                                    <AvatarImage src={attendee.profile?.avatar_url ?? ''} alt={attendee.profile?.name ?? 'Avatar'} />
+                                    <AvatarFallback>{attendee.profile?.name?.charAt(0)?.toUpperCase() ?? '?'}</AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1 min-w-0">
                                     {attendee.profile?.nickname ? (
@@ -593,13 +581,13 @@ export default function EventDetailsPage() {
       </div>
     </MobileLayout>
 
-      {/* Drawer de Detalhes do Membro */}
+      {/* Drawer/Sheet for Member Details - Ensure group is not null */}
       {group && selectedMemberId && (
-        <MemberDetails
-          userId={selectedMemberId}
-          groupId={group.id} 
-          open={isMemberDrawerOpen}
-          onOpenChange={setIsMemberDrawerOpen}
+        <MemberDetails 
+            userId={selectedMemberId}
+            groupId={group.id}
+            open={isMemberDrawerOpen}
+            onOpenChange={setIsMemberDrawerOpen}
         />
       )}
     </>

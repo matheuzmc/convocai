@@ -81,17 +81,6 @@ export interface AttendeeWithProfile extends EventAttendee {
   } | null;
 }
 
-// Novo tipo para o retorno de getEventDetails
-export interface EventDetailsData {
-  event: Event;
-  group: {
-    id: string;
-    name: string;
-    image_url: string | null;
-  };
-  attendees: AttendeeWithProfile[];
-}
-
 export interface Notification {
   id: string;
   userId: string;

@@ -94,7 +94,6 @@ export default function GroupsListPage() {
                 key={group.id}
                 id={group.id}
                 name={group.name}
-                description={group.description ?? ''} // Handle null description
                 sport={group.sport}
                 image={group.image}
                 memberCount={group.memberCount ?? 0} // Use memberCount from API

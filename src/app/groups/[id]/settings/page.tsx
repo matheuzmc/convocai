@@ -130,15 +130,20 @@ export default function GroupSettingsPage() {
           setImagePreviewUrl(null);
       }
     }
-  }, [group, isSuccess]);
+  }, [group, isSuccess, imagePreviewUrl, setImagePreviewUrl]);
 
   useEffect(() => {
+    const currentPreviewUrl = imagePreviewUrl; 
+    const currentGroupSrc = groupImgSrc;
+    
     return () => {
-      if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl);
+      if (currentPreviewUrl) {
+        URL.revokeObjectURL(currentPreviewUrl);
+        console.log("Revogando preview URL:", currentPreviewUrl.substring(0, 20) + "...");
       }
-      if (groupImgSrc) {
-        URL.revokeObjectURL(groupImgSrc);
+      if (currentGroupSrc) { 
+        URL.revokeObjectURL(currentGroupSrc);
+        console.log("Revogando group src URL:", currentGroupSrc.substring(0, 20) + "...");
       }
     };
   }, [imagePreviewUrl, groupImgSrc]);

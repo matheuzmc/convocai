@@ -1,7 +1,7 @@
 "use client"
 
 import { createClient } from '@/lib/supabase/client';
-import { User, Group, Event, Notification, SportType, EventDetailsData as OriginalEventDetailsData, AttendeeWithProfile, GroupMemberWithProfile } from "@/lib/types";
+import { User, Group, Event, Notification, SportType, AttendeeWithProfile, GroupMemberWithProfile } from "@/lib/types";
 // Descomentar Json
 import type { Database, Json, TablesUpdate } from "@/lib/database.types.ts";
 import crypto from 'crypto';
@@ -66,13 +66,8 @@ type MemberWithProfile = Database['public']['Tables']['group_members']['Row'] & 
 // Adicionar tipo explícito para a linha completa de 'profiles'
 type ProfileRowComplete = Database['public']['Tables']['profiles']['Row']; 
 
-// Recria o tipo EventDetailsData estendendo o original e adicionando isAdmin
-export type EventDetailsData = OriginalEventDetailsData & {
-  isAdmin: boolean;
-};
-
 // Type matching the JSON structure returned by the new SQL function
-interface EventDetailsRpcResponse {
+export interface EventDetailsRpcResponse {
   event: Omit<Event, 'attendees'>; // Event details without attendees array
   group: {
     id: string;
@@ -80,7 +75,7 @@ interface EventDetailsRpcResponse {
     image_url: string | null;
   };
   attendees: AttendeeWithProfile[];
-  isAdmin: boolean; // Adicionado
+  isAdmin: boolean; // Garantir que está aqui
 }
 
 // Adicionar tipo para o retorno esperado da RPC calculate_member_attendance
@@ -1280,14 +1275,13 @@ export const uploadGroupImage = async (file: File, groupId: string): Promise<str
  * Fetches complete details for a specific event using an RPC call.
  * 
  * @param {string} eventId The ID of the event to fetch.
- * @returns {Promise<EventDetailsData | null>} An object with event, group, and attendee details, or null if not found/error.
+ * @returns {Promise<EventDetailsRpcResponse | null>} The event details including attendees and admin status, or null if not found.
+ * @throws {Error} If there's a database error.
  */
-export const getEventDetails = async (eventId: string): Promise<EventDetailsData | null> => {
+export const getEventDetails = async (eventId: string): Promise<EventDetailsRpcResponse | null> => {
+  if (!eventId) return null;
+  
   const supabase = createClient();
-  if (!eventId) {
-    console.error("getEventDetails called with no eventId");
-    return null;
-  }
 
   try {
     // Call the RPC function - Types should now be generated

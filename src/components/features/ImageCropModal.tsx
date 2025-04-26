@@ -187,6 +187,7 @@ export const ImageCropModal: React.FC<ImageCropModalProps> = ({
               // minWidth={100} // Pode ser parametrizado via props se necessário
               // minHeight={100}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 ref={imgRef}
                 alt="Crop me"

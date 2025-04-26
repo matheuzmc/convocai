@@ -300,10 +300,8 @@ export function GroupTabs({
                       key={member.id}
                       id={member.id}
                       name={`${member.name || ''} ${member.last_name || ''}`.trim()}
-                      lastName={member.last_name}
                       nickname={member.nickname}
                       avatar={member.avatar || ''}
-                      isAdmin={true}
                       groupId={groupId}
                     />
                   ))}
@@ -319,10 +317,8 @@ export function GroupTabs({
                       key={member.id}
                       id={member.id}
                       name={`${member.name || ''} ${member.last_name || ''}`.trim()}
-                      lastName={member.last_name}
                       nickname={member.nickname}
                       avatar={member.avatar || ''}
-                      isAdmin={false}
                       groupId={groupId}
                     />
                   ))}
