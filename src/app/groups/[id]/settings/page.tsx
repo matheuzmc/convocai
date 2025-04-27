@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import { Trash2, AlertTriangle, Loader2, Camera } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -56,7 +56,6 @@ export default function GroupSettingsPage() {
   const [groupName, setGroupName] = useState("");
   const [description, setDescription] = useState("");
   const [sport, setSport] = useState<SportType | undefined>(undefined);
-  const [groupImage, setGroupImage] = useState('/placeholder-group.jpg');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
@@ -123,14 +122,15 @@ export default function GroupSettingsPage() {
       setGroupName(group.name ?? "");
       setDescription(group.description ?? "");
       setSport(group.sport as SportType | undefined);
-      setGroupImage(group.image || '/placeholder-group.jpg');
       setSelectedImageFile(null);
-      if (imagePreviewUrl) {
-          URL.revokeObjectURL(imagePreviewUrl);
-          setImagePreviewUrl(null);
-      }
+      setImagePreviewUrl(prevUrl => {
+        if (prevUrl) {
+          URL.revokeObjectURL(prevUrl);
+        }
+        return null;
+      });
     }
-  }, [group, isSuccess, imagePreviewUrl, setImagePreviewUrl]);
+  }, [group, isSuccess]);
 
   useEffect(() => {
     const currentPreviewUrl = imagePreviewUrl; 
@@ -356,7 +356,7 @@ export default function GroupSettingsPage() {
     );
   }
   
-  const currentGroupImageUrl = imagePreviewUrl || groupImage;
+  const displayImageUrl = imagePreviewUrl || groupDetailsData?.group?.image || '/placeholder-group.jpg';
 
   return (
     <MobileLayout
@@ -404,7 +404,7 @@ export default function GroupSettingsPage() {
       )}
 
       {!isLoading && group && (
-        <div className="space-y-6 p-4">
+        <div className="space-y-6 p-4 pb-24">
           <Card>
             <CardContent className="p-4 space-y-4">
               <div className="space-y-2">
@@ -452,35 +452,42 @@ export default function GroupSettingsPage() {
             <CardContent className="p-4 space-y-3">
               <Label>Imagem do Grupo (Banner)</Label>
               <div className="w-full max-w-md mx-auto aspect-video relative overflow-hidden border rounded-md bg-muted">
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={onSelectGroupFile}
+                    accept="image/jpeg, image/png, image/webp" 
+                    className="hidden" 
+                    disabled={!isAdmin || isLoading || isUploadingImage || updateGroupMutation.isPending || deleteGroupMutation.isPending}
+                  />
                  <Image 
-                    key={currentGroupImageUrl}
-                    src={currentGroupImageUrl} 
+                    key={displayImageUrl}
+                    src={displayImageUrl}
                     alt={groupName || "Imagem do Grupo"} 
                     fill
                     className="object-cover"
                     sizes="(max-width: 768px) 100vw, 50vw"
-                    onError={() => setGroupImage('/placeholder-group.jpg')}
+                    priority={false}
+                    onError={() => {
+                      if (imagePreviewUrl) {
+                        URL.revokeObjectURL(imagePreviewUrl);
+                        setImagePreviewUrl(null);
+                      }
+                    }}
                   />
+                   <div 
+                      className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                      onClick={triggerFileInput}
+                      aria-label="Alterar imagem do grupo"
+                    >
+                      <Camera className="h-8 w-8 text-white" />
+                    </div>
+                    {(isUploadingImage || updateGroupMutation.isPending) && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                          <Loader2 className="h-6 w-6 text-white animate-spin" />
+                        </div>
+                    )}
               </div>
-              <div className="flex justify-center pt-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={triggerFileInput}
-                  disabled={!isAdmin || isLoading || isUploadingImage || updateGroupMutation.isPending || deleteGroupMutation.isPending}
-                >
-                  {isUploadingImage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isUploadingImage ? 'Enviando...' : 'Alterar Imagem'}
-                </Button>
-              </div>
-               <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={onSelectGroupFile}
-                  accept="image/jpeg, image/png, image/webp" 
-                  className="hidden" 
-                  disabled={!isAdmin || isLoading || isUploadingImage || updateGroupMutation.isPending || deleteGroupMutation.isPending}
-                />
             </CardContent>
           </Card>
 

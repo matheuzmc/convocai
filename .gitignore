@@ -39,4 +39,9 @@ next-env.d.ts
 
 # Logs
 logs
-*.log 
+*.log
+
+# Supabase
+supabase/config.toml
+supabase/.temp/
+supabase/schema_prod.sql 
