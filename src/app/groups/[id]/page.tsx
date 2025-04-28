@@ -151,7 +151,7 @@ export default function GroupDetailsPage() {
       <div className="space-y-4 px-4">
         <div className="h-40 -mx-4 overflow-hidden relative">
            <Image
-            src={group.image || '/placeholder-group.jpg'} 
+            src={group.image || '/placeholder.svg'} 
             alt={group.name}
             className="w-full h-full object-cover"
             fill
