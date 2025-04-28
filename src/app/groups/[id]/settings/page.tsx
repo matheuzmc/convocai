@@ -87,6 +87,7 @@ export default function GroupSettingsPage() {
     onSuccess: () => {
       toast.success("Grupo atualizado com sucesso!");
       queryClient.invalidateQueries({ queryKey: ['groupDetails', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['userGroups'] });
       setSelectedImageFile(null);
       if (imagePreviewUrl) {
           URL.revokeObjectURL(imagePreviewUrl);
@@ -108,7 +109,7 @@ export default function GroupSettingsPage() {
      },
      onSuccess: () => {
        toast.success("Grupo excluído com sucesso!");
-       queryClient.invalidateQueries({ queryKey: ['groups'] });
+       queryClient.invalidateQueries({ queryKey: ['userGroups'] });
        router.push('/groups');
      },
      onError: (error) => {

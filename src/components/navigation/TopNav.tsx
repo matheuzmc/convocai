@@ -100,7 +100,7 @@ export function TopNav({
           </Link>
         )}
         {!isLoadingUser && !currentUser && (
-           <Link href="/auth/login">
+           <Link href="/login">
              <div className="h-8 w-8 rounded-full bg-muted border-2"></div>
            </Link>
         )}

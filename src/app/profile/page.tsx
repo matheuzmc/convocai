@@ -262,6 +262,7 @@ export default function ProfilePage() {
           toast.success("Perfil atualizado com sucesso!");
           queryClient.invalidateQueries({ queryKey: ['userProfile', authUser.id] });
           queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+          queryClient.invalidateQueries({ queryKey: ['groupDetails'] });
           setSelectedAvatarFile(null);
           setAvatarPreviewUrl(null);
         },

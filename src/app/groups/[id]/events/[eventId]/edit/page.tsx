@@ -74,6 +74,8 @@ export default function EditEventPage() {
       queryClient.invalidateQueries({ queryKey: ['eventDetails', eventId] });
       queryClient.invalidateQueries({ queryKey: ['groupDetails', groupId] });
       queryClient.invalidateQueries({ queryKey: ['userUpcomingEvents', currentUser?.id] }); 
+      // Also invalidate past events in case the date was changed
+      queryClient.invalidateQueries({ queryKey: ['userPastEvents', currentUser?.id] }); 
       // Redirecionar para detalhes do evento
       router.push(`/events/${eventId}`);
     },
