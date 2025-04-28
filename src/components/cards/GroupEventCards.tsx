@@ -40,6 +40,8 @@ export function GroupCard({
   memberCount,
   className,
 }: GroupCardProps) {
+  const displayImage = image || '/placeholder.svg';
+
   return (
     <motion.div
       whileHover={{ y: -4 }}
@@ -52,7 +54,7 @@ export function GroupCard({
         <div className="relative h-32 w-full">
           <div 
             className="absolute inset-0 bg-cover bg-center" 
-            style={{ backgroundImage: `url(${image})` }}
+            style={{ backgroundImage: `url(${displayImage})` }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           <div className="absolute bottom-0 left-0 p-3">

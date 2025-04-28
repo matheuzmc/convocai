@@ -357,7 +357,7 @@ export default function GroupSettingsPage() {
     );
   }
   
-  const displayImageUrl = imagePreviewUrl || groupDetailsData?.group?.image || '/placeholder-group.jpg';
+  const displayImageUrl = imagePreviewUrl || groupDetailsData?.group?.image || '/placeholder.svg';
 
   return (
     <MobileLayout

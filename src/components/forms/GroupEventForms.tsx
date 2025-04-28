@@ -206,7 +206,7 @@ export function GroupForm({ onSubmit, initialData, isEdit = false, isLoading = f
       name: String(formData.get('name') || ''),
       description: String(formData.get('description') || ''),
       sport: String(formData.get('sport') || ''),
-      image: String(formData.get('image') || 'https://images.unsplash.com/photo-1575361204480-aadea25e6e68?auto=format&fit=crop&w=1000&q=80'),
+      image: String(formData.get('image') || ''),
     };
     onSubmit(data);
   };
