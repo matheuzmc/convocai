@@ -38,6 +38,7 @@ export interface Group {
   events: string[];
   createdAt: string;
   memberCount?: number;
+  is_active: boolean;
 }
 
 export interface EventAttendee {
@@ -62,7 +63,8 @@ export interface Event {
 
 // Tipo para membro de grupo com dados básicos do perfil
 export interface GroupMemberWithProfile {
-  id: string; // User ID
+  id: string; // ID do perfil (se existir, senão user_id)
+  user_id: string; // Adicionar ID de autenticação (user_id)
   name: string | null;
   last_name?: string | null;
   nickname?: string | null;
