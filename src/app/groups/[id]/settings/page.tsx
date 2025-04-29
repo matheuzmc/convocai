@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
 import { BottomNav } from "@/components/navigation/BottomNav";
@@ -10,8 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trash2, AlertTriangle, Loader2, Camera } from "lucide-react";
-import Link from "next/link";
+import { Trash2, AlertTriangle, Loader2, Camera, UploadCloud } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from '@/lib/supabase/client';
@@ -33,9 +32,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { ImageCropModal } from '@/components/features/ImageCropModal';
 import { getStoragePathFromUrl } from '@/lib/utils';
-import { GROUP_IMAGE_COMPRESSION_OPTIONS } from '@/lib/constants';
+import { useImageUpload } from "@/hooks/useImageUpload";
 
 // Definir array de valores do SportType
 const sportTypeValues: SportType[] = [
@@ -49,7 +47,6 @@ export default function GroupSettingsPage() {
   const supabase = createClient();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { data: currentUser, isLoading: isLoadingUser } = useCurrentUser();
   
@@ -57,17 +54,13 @@ export default function GroupSettingsPage() {
   const [description, setDescription] = useState("");
   const [sport, setSport] = useState<SportType | undefined>(undefined);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [showGroupCropModal, setShowGroupCropModal] = useState(false);
-  const [groupImgSrc, setGroupImgSrc] = useState('');
+  
+  const [isSaving, setIsSaving] = useState(false);
 
   const { 
     data: groupDetailsData, 
     isLoading: isLoadingGroupDetails, 
     error: groupDetailsError,
-    isSuccess,
   } = useQuery({
     queryKey: ['groupDetails', groupId], 
     queryFn: () => getGroupDetails(groupId),
@@ -77,7 +70,28 @@ export default function GroupSettingsPage() {
   
   const group = groupDetailsData?.group ?? null;
   const isAdmin = groupDetailsData?.isAdmin ?? false;
-  const isLoading = isLoadingUser || isLoadingGroupDetails || (isSuccess && !groupDetailsData);
+  const isLoading = isLoadingUser || isLoadingGroupDetails;
+
+  const {
+    fileInputRef, 
+    triggerFileInput,
+    displayImageUrl: displayImageUrlFromHook,
+    isProcessing: isProcessingImage,
+    selectedFile,
+    renderCropModal,
+    onSelectFile,
+    clearSelection: clearImageSelection
+  } = useImageUpload({
+      initialImageUrl: group?.image,
+      aspectRatio: 16/9
+  });
+
+  // Lógica para verificar mudanças
+  const hasChanges = 
+    groupName !== (group?.name ?? "") || 
+    description !== (group?.description ?? "") ||
+    sport !== (group?.sport as SportType | undefined) ||
+    selectedFile !== null; 
 
   const updateGroupMutation = useMutation({
     mutationFn: (updates: Partial<Group>) => {
@@ -88,17 +102,13 @@ export default function GroupSettingsPage() {
       toast.success("Grupo atualizado com sucesso!");
       queryClient.invalidateQueries({ queryKey: ['groupDetails', groupId] });
       queryClient.invalidateQueries({ queryKey: ['userGroups'] });
-      setSelectedImageFile(null);
-      if (imagePreviewUrl) {
-          URL.revokeObjectURL(imagePreviewUrl);
-          setImagePreviewUrl(null);
-      }
+      clearImageSelection();
     },
     onError: (error) => {
       toast.error(`Erro ao atualizar grupo: ${error.message}`);
     },
     onSettled: () => {
-      setIsUploadingImage(false);
+      setIsSaving(false);
     }
   });
 
@@ -119,109 +129,30 @@ export default function GroupSettingsPage() {
    });
 
   useEffect(() => {
-    if (isSuccess && group) {
+    if (group) {
       setGroupName(group.name ?? "");
       setDescription(group.description ?? "");
       setSport(group.sport as SportType | undefined);
-      setSelectedImageFile(null);
-      setImagePreviewUrl(prevUrl => {
-        if (prevUrl) {
-          URL.revokeObjectURL(prevUrl);
-        }
-        return null;
-      });
     }
-  }, [group, isSuccess]);
+  }, [group]);
 
-  useEffect(() => {
-    const currentPreviewUrl = imagePreviewUrl; 
-    const currentGroupSrc = groupImgSrc;
-    
-    return () => {
-      if (currentPreviewUrl) {
-        URL.revokeObjectURL(currentPreviewUrl);
-        console.log("Revogando preview URL:", currentPreviewUrl.substring(0, 20) + "...");
-      }
-      if (currentGroupSrc) { 
-        URL.revokeObjectURL(currentGroupSrc);
-        console.log("Revogando group src URL:", currentGroupSrc.substring(0, 20) + "...");
-      }
-    };
-  }, [imagePreviewUrl, groupImgSrc]);
-
-  const onSelectGroupFile = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-          toast.error("Formato de imagem inválido. Use JPG, PNG ou WEBP.");
-          event.target.value = "";
-          return;
-      }
-      
-      if (groupImgSrc) {
-        URL.revokeObjectURL(groupImgSrc);
-      }
-
-      const newImgSrc = URL.createObjectURL(file);
-      setGroupImgSrc(newImgSrc);
-      setShowGroupCropModal(true);
-      
-      event.target.value = ""; 
-
-    } else {
-      setGroupImgSrc('');
-      setShowGroupCropModal(false);
-    }
-  };
-
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleGroupCropComplete = (croppedFile: File) => {
-      setSelectedImageFile(croppedFile);
-
-      if (imagePreviewUrl) {
-        URL.revokeObjectURL(imagePreviewUrl);
-      }
-      const newPreviewUrl = URL.createObjectURL(croppedFile);
-      setImagePreviewUrl(newPreviewUrl);
-      
-      if (groupImgSrc) {
-          URL.revokeObjectURL(groupImgSrc);
-          setGroupImgSrc('');
-      }
-  };
-
-  const hasChanges = 
-    groupName !== (group?.name ?? "") || 
-    description !== (group?.description ?? "") ||
-    sport !== (group?.sport as SportType | undefined) ||
-    selectedImageFile !== null; 
-    
-  console.log('>>> Verificando mudanças:', { // DEBUG LOG
-      groupNameChanged: groupName !== (group?.name ?? ""),
-      descriptionChanged: description !== (group?.description ?? ""),
-      sportChanged: sport !== (group?.sport as SportType | undefined),
-      imageSelected: selectedImageFile !== null,
-      selectedImageFile: selectedImageFile,
-      hasChanges: hasChanges
-  });
+  const displayImageUrl = displayImageUrlFromHook || '/placeholder.svg';
 
   const handleSaveChanges = async () => {
     if (!group) return;
 
+    setIsSaving(true);
+
     let imageUrl = group.image;
     const updates: Partial<Group> = {};
+    let requiresApiUpdate = false;
     
-    if (groupName !== (group?.name ?? "")) updates.name = groupName;
-    if (description !== (group?.description ?? "")) updates.description = description;
-    if (sport !== (group?.sport as SportType | undefined)) updates.sport = sport;
+    if (groupName !== (group?.name ?? "")) { updates.name = groupName; requiresApiUpdate = true; }
+    if (description !== (group?.description ?? "")) { updates.description = description; requiresApiUpdate = true; }
+    if (sport !== (group?.sport as SportType | undefined)) { updates.sport = sport; requiresApiUpdate = true; }
 
-    if (selectedImageFile) {
-      setIsUploadingImage(true);
-
-      const fileExtension = selectedImageFile.name.split('.').pop();
+    if (selectedFile) {
+      const fileExtension = selectedFile.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`;
       const filePath = `${groupId}/${fileName}`;
       const bucketName = 'group-images';
@@ -229,7 +160,7 @@ export default function GroupSettingsPage() {
       try {
         const { data: uploadData, error: uploadError } = await supabase.storage
             .from(bucketName)
-            .upload(filePath, selectedImageFile, {
+            .upload(filePath, selectedFile, {
               cacheControl: '3600',
               upsert: false,
             });
@@ -246,45 +177,29 @@ export default function GroupSettingsPage() {
         }
         imageUrl = publicUrlData.publicUrl;
         updates.image = imageUrl;
+        requiresApiUpdate = true;
 
-        console.log(`Nova imagem carregada: ${imageUrl}`);
-
-        // --- Início: Lógica para excluir imagem antiga do grupo ---
         const oldImagePath = getStoragePathFromUrl(group.image, bucketName);
-
         if (oldImagePath && imageUrl !== group.image) {
-          console.log(`Tentando excluir imagem antiga do grupo: ${oldImagePath}`);
-          supabase.storage
-            .from(bucketName)
-            .remove([oldImagePath])
-            .then(({ error: deleteError }) => {
-              if (deleteError) {
-                console.warn("Falha ao excluir imagem antiga do grupo:", deleteError);
-              } else {
-                console.log("Imagem antiga do grupo excluída com sucesso.");
-              }
-            });
+          supabase.storage.from(bucketName).remove([oldImagePath]).then(({ error: deleteError }) => {
+            if (deleteError) console.warn("Falha ao excluir imagem antiga do grupo:", deleteError);
+          });
         }
-        // --- Fim: Lógica para excluir imagem antiga do grupo ---
 
       } catch (error) {
         toast.error(`Erro durante o upload da imagem: ${error instanceof Error ? error.message : String(error)}`);
-        setIsUploadingImage(false);
-        setSelectedImageFile(null);
-        setImagePreviewUrl(null);
+        setIsSaving(false);
         return;
       } 
     } 
 
-    if (Object.keys(updates).length > 0) {
-        console.log("Atualizando grupo com:", updates);
+    if (requiresApiUpdate) {
         updateGroupMutation.mutate(updates);
     } else {
         toast.info("Nenhuma alteração detectada para salvar.");
-        setIsUploadingImage(false);
-        if (!Object.keys(updates).length && selectedImageFile) {
-            setSelectedImageFile(null);
-            if (imagePreviewUrl) { URL.revokeObjectURL(imagePreviewUrl); setImagePreviewUrl(null); }
+        setIsSaving(false);
+        if (selectedFile && !requiresApiUpdate) { 
+          clearImageSelection();
         }
     }
   };
@@ -294,7 +209,7 @@ export default function GroupSettingsPage() {
     setShowDeleteConfirm(false);
   };
 
-  if (isLoading) {
+  if (isLoading && !group) {
     return (
       <MobileLayout
         header={<TopNav title="Configurações" backHref={`/groups/${groupId ?? ''}`} />}
@@ -337,75 +252,23 @@ export default function GroupSettingsPage() {
      );
    }
 
-  if (!isAdmin) {
-    return (
-      <MobileLayout
-        header={<TopNav title="Acesso Restrito" backHref={`/groups/${groupId}`} />}
-        footer={<BottomNav />}
-      >
-        <div className="flex flex-col items-center justify-center h-full py-10 text-center">
-          <AlertTriangle className="mx-auto h-8 w-8 mb-4 text-destructive"/>
-          <h2 className="text-xl font-semibold mb-2">Acesso Negado</h2>
-          <p className="text-muted-foreground mb-6">
-            Apenas administradores podem acessar as configurações do grupo.
-          </p>
-          <Button asChild>
-            <Link href={`/groups/${groupId}`}>Voltar para o Grupo</Link>
-          </Button>
-        </div>
-      </MobileLayout>
-    );
-  }
-  
-  const displayImageUrl = imagePreviewUrl || groupDetailsData?.group?.image || '/placeholder.svg';
-
   return (
     <MobileLayout
       header={<TopNav title="Configurações do Grupo" backHref={`/groups/${groupId}`} />}
       footer={<BottomNav />}
     >
-      {isLoading && (
-        <div className="space-y-6 p-4">
-          <div className="flex items-center space-x-4">
-            <Skeleton className="h-20 w-20 rounded-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-6 w-[250px]" />
-              <Skeleton className="h-4 w-[200px]" />
-            </div>
-          </div>
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-1/2" />
-        </div>
-      )}
-
-      {!isLoading && groupDetailsError && (
-        <div className="p-4 text-center text-destructive">
-          <AlertTriangle className="mx-auto h-8 w-8 mb-2" />
-          Erro ao carregar detalhes do grupo. Tente novamente.
-          <p className="text-sm text-muted-foreground mt-1">
-            {groupDetailsError ? (groupDetailsError as Error).message : 'Ocorreu um erro desconhecido'}
-          </p>
-        </div>
-      )}
-
-      {!isLoading && !groupDetailsError && !group && (
-         <div className="p-4 text-center text-muted-foreground">Grupo não encontrado.</div>
-      )}
-
-      {!isLoading && !isAdmin && group && (
-        <Alert variant="default" className="m-4 bg-amber-50 border border-amber-200 text-amber-800">
-          <TriangleAlert className="h-4 w-4 !text-amber-600" />
-          <AlertTitle>Acesso Restrito</AlertTitle>
-          <AlertDescription>
-            Você pode visualizar as configurações, mas apenas administradores podem fazer alterações neste grupo.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {!isLoading && group && (
+      {group && (
         <div className="space-y-6 p-4 pb-24">
+          {!isAdmin && (
+             <Alert variant="default" className="m-0 mb-6 bg-amber-50 border border-amber-200 text-amber-800">
+               <TriangleAlert className="h-4 w-4 !text-amber-600" />
+               <AlertTitle>Acesso Restrito</AlertTitle>
+               <AlertDescription>
+                 Você pode visualizar as configurações, mas apenas administradores podem fazer alterações neste grupo.
+               </AlertDescription>
+             </Alert>
+          )}
+          
           <Card>
             <CardContent className="p-4 space-y-4">
               <div className="space-y-2">
@@ -414,7 +277,7 @@ export default function GroupSettingsPage() {
                   id="groupName" 
                   value={groupName} 
                   onChange={(e) => setGroupName(e.target.value)}
-                  disabled={!isAdmin || isLoading || updateGroupMutation.isPending || deleteGroupMutation.isPending}
+                  disabled={!isAdmin || isSaving || updateGroupMutation.isPending || deleteGroupMutation.isPending}
                 />
               </div>
               <div className="space-y-2">
@@ -423,7 +286,7 @@ export default function GroupSettingsPage() {
                   id="description" 
                   value={description} 
                   onChange={(e) => setDescription(e.target.value)} 
-                  disabled={!isAdmin || isLoading || updateGroupMutation.isPending || deleteGroupMutation.isPending}
+                  disabled={!isAdmin || isSaving || updateGroupMutation.isPending || deleteGroupMutation.isPending}
                   rows={4}
                 />
               </div>
@@ -432,7 +295,7 @@ export default function GroupSettingsPage() {
                 <Select 
                   value={sport} 
                   onValueChange={(value) => setSport(value as SportType)} 
-                  disabled={!isAdmin || isLoading || updateGroupMutation.isPending || deleteGroupMutation.isPending}
+                  disabled={!isAdmin || isSaving || updateGroupMutation.isPending || deleteGroupMutation.isPending}
                 >
                   <SelectTrigger id="sport">
                     <SelectValue placeholder="Selecione o esporte" />
@@ -452,43 +315,60 @@ export default function GroupSettingsPage() {
           <Card>
             <CardContent className="p-4 space-y-3">
               <Label>Imagem do Grupo (Banner)</Label>
-              <div className="w-full max-w-md mx-auto aspect-video relative overflow-hidden border rounded-md bg-muted">
+              <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-dashed border-input flex items-center justify-center bg-muted/40">
                 <input 
                     type="file" 
-                    ref={fileInputRef} 
-                    onChange={onSelectGroupFile}
+                    ref={fileInputRef}
+                    onChange={onSelectFile}
                     accept="image/jpeg, image/png, image/webp" 
                     className="hidden" 
-                    disabled={!isAdmin || isLoading || isUploadingImage || updateGroupMutation.isPending || deleteGroupMutation.isPending}
+                    disabled={!isAdmin || isSaving || isProcessingImage || deleteGroupMutation.isPending}
                   />
-                 <Image 
-                    key={displayImageUrl}
-                    src={displayImageUrl}
-                    alt={groupName || "Imagem do Grupo"} 
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    priority={false}
-                    onError={() => {
-                      if (imagePreviewUrl) {
-                        URL.revokeObjectURL(imagePreviewUrl);
-                        setImagePreviewUrl(null);
-                      }
-                    }}
-                  />
-                   <div 
-                      className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-                      onClick={triggerFileInput}
-                      aria-label="Alterar imagem do grupo"
-                    >
-                      <Camera className="h-8 w-8 text-white" />
-                    </div>
-                    {(isUploadingImage || updateGroupMutation.isPending) && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                          <Loader2 className="h-6 w-6 text-white animate-spin" />
-                        </div>
-                    )}
+                
+                {isProcessingImage ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+                    <Loader2 className="h-6 w-6 text-white animate-spin" />
+                  </div>
+                ) : displayImageUrl ? (
+                   <Image 
+                      key={displayImageUrl}
+                      src={displayImageUrl}
+                      alt={groupName || "Imagem do Grupo"} 
+                      fill={true}
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      priority={false}
+                      unoptimized
+                      onError={() => {
+                        if (displayImageUrlFromHook && displayImageUrl === displayImageUrlFromHook) {
+                           toast.error("Erro ao carregar prévia da imagem.");
+                        }
+                      }}
+                    />
+                ) : (
+                  <div className="text-center text-muted-foreground p-4">
+                    <UploadCloud className="mx-auto h-10 w-10 mb-2" />
+                    <p className="text-sm">Nenhuma imagem selecionada</p>
+                    <p className="text-xs">Clique no ícone da câmera para adicionar</p>
+                  </div>
+                )}
+                
+                {isAdmin && !isProcessingImage && (
+                  <button
+                    type="button"
+                    onClick={triggerFileInput}
+                    disabled={isSaving || deleteGroupMutation.isPending}
+                    className="absolute bottom-2 right-2 bg-background/80 hover:bg-background text-foreground rounded-full p-2 transition-colors duration-200 border border-border shadow-sm z-20"
+                    aria-label="Alterar imagem do grupo"
+                  >
+                    <Camera className="h-5 w-5" />
+                  </button>
+                )}
+
               </div>
+              <p className="text-xs text-muted-foreground">
+                 Opcional. Recomendado: formato paisagem (16:9).
+              </p>
             </CardContent>
           </Card>
 
@@ -496,10 +376,10 @@ export default function GroupSettingsPage() {
             <div className="flex justify-end gap-4">
                 <Button 
                     onClick={handleSaveChanges} 
-                    disabled={isLoading || isUploadingImage || updateGroupMutation.isPending || deleteGroupMutation.isPending || (!selectedImageFile && groupName === group.name && description === (group.description ?? "") && sport === (group.sport as SportType | undefined)) }
+                    disabled={!isAdmin || isSaving || isProcessingImage || deleteGroupMutation.isPending || !hasChanges }
                   >
-                    {(updateGroupMutation.isPending || isUploadingImage) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isUploadingImage ? 'Enviando imagem...' : (updateGroupMutation.isPending ? 'Salvando...' : 'Salvar Alterações')}
+                    {(isSaving || isProcessingImage) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {isSaving ? (selectedFile ? 'Enviando/Salvando...' : 'Salvando...') : 'Salvar Alterações'}
                 </Button>
             </div>
           )}
@@ -520,7 +400,7 @@ export default function GroupSettingsPage() {
                       variant="destructive" 
                       onClick={() => setShowDeleteConfirm(true)} 
                       className="w-full" 
-                      disabled={deleteGroupMutation.isPending} 
+                      disabled={deleteGroupMutation.isPending || isSaving}
                     >
                       {deleteGroupMutation.isPending ? (
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -561,15 +441,7 @@ export default function GroupSettingsPage() {
         </div>
       )}
       
-      <ImageCropModal
-          isOpen={showGroupCropModal}
-          onClose={() => setShowGroupCropModal(false)}
-          imageSrc={groupImgSrc}
-          aspectRatio={16 / 9}
-          circularCrop={false}
-          compressionOptions={GROUP_IMAGE_COMPRESSION_OPTIONS}
-          onConfirm={handleGroupCropComplete}
-       />
+      {renderCropModal()}
     </MobileLayout>
   );
 }

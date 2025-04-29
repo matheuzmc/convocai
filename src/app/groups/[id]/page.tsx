@@ -6,7 +6,6 @@ import { TopNav } from "@/components/navigation/TopNav";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Users, Settings, UserPlus, AlertTriangle, Loader2, MoreVertical, LogOut } from "lucide-react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { GroupTabs, InviteDialog } from "@/components/ui-elements/DialogsAndTabs";
@@ -21,6 +20,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -232,19 +232,6 @@ export default function GroupDetailsPage() {
           </div>
           
           <div className="flex gap-2 items-center">
-            {isAdmin && (
-              <Button 
-                variant="outline" 
-                size="icon" 
-                asChild 
-                title="Configurações do Grupo"
-                disabled={!isActive}
-              >
-                <Link href={`/groups/${groupId}/settings`}>
-                  <Settings className="h-4 w-4" />
-                </Link>
-              </Button>
-            )}
             {isAdmin && !(!isActive) && (
               <Button 
                 variant="outline" 
@@ -261,8 +248,6 @@ export default function GroupDetailsPage() {
               </Button>
             )}
 
-            {/* Mover AlertDialog para envolver Dropdown e Conteúdo */}
-            {/* Mostrar menu APENAS se o usuário for membro */}
             {isMember && (
               <AlertDialog open={isLeaveConfirmOpen} onOpenChange={setIsLeaveConfirmOpen}>
                 <DropdownMenu>
@@ -272,6 +257,19 @@ export default function GroupDetailsPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    {isAdmin && (
+                      <DropdownMenuItem 
+                        className="cursor-pointer"
+                        onClick={() => router.push(`/groups/${groupId}/settings`)}
+                        disabled={!isActive}
+                      >
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Configurações</span>
+                      </DropdownMenuItem>
+                    )}
+                    
+                    {isAdmin && <DropdownMenuSeparator />}
+
                     <AlertDialogTrigger asChild> 
                       <DropdownMenuItem 
                         className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
@@ -322,7 +320,6 @@ export default function GroupDetailsPage() {
           </div>
         </div>
 
-        {/* --- Adicionar Alerta de Grupo Inativo --- */} 
         {!isActive && (
           <Alert variant="destructive" className="mt-4">
             <Terminal className="h-4 w-4" />
@@ -332,7 +329,6 @@ export default function GroupDetailsPage() {
             </AlertDescription>
           </Alert>
         )}
-        {/* --- Fim do Alerta --- */}
 
         <GroupTabs 
           events={events} 

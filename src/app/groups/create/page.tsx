@@ -17,6 +17,7 @@ import { createGroup } from "@/services/api";
 import { useRouter } from "next/navigation";
 import { SportType } from "@/lib/types";
 import { toast } from "sonner";
+import { useImageUpload } from "@/hooks/useImageUpload";
 
 export default function CreateGroupPage() {
   const queryClient = useQueryClient();
@@ -24,6 +25,20 @@ export default function CreateGroupPage() {
   const supabase = createClient();
   const [authUser, setAuthUser] = useState<AuthUserType | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
+
+  const {
+    fileInputRef,
+    triggerFileInput,
+    displayImageUrl,
+    isProcessing: isProcessingImage,
+    selectedFile,
+    renderCropModal,
+    onSelectFile,
+  } = useImageUpload({
+    aspectRatio: 16 / 9
+  });
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const getUser = async () => {
@@ -39,50 +54,92 @@ export default function CreateGroupPage() {
   const isPremium = false;
 
   const mutation = useMutation({
-    mutationFn: createGroup,
+    mutationFn: (payload: { name: string; description: string | null; sport: SportType; image_url: string | null }) => createGroup(payload),
     onSuccess: (newGroupId) => {
       queryClient.invalidateQueries({ queryKey: ['userGroups', authUser?.id] });
-      queryClient.invalidateQueries({ queryKey: ['groupDetails', newGroupId] });
       toast.success('Grupo criado com sucesso!');
       router.push(`/groups/${newGroupId}`);
     },
     onError: (error) => {
       console.error("Error creating group:", error);
       toast.error(`Erro ao criar grupo: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      setIsSubmitting(false);
     },
+    onSettled: () => {
+    }
   });
 
-  const handleSubmit = (data: GroupFormData) => {
+  const handleSubmit = async (data: Omit<GroupFormData, 'image'>) => {
     if (!authUser) {
-        toast.error("Erro: Usuário não autenticado.");
-        return;
+      toast.error("Erro: Usuário não autenticado.");
+      return;
     }
-    
+
+    setIsSubmitting(true);
+    let imageUrl: string | null = null;
+
+    if (selectedFile) {
+      const fileExtension = selectedFile.name.split('.').pop();
+      const uniqueId = `${authUser.id}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const fileName = `${uniqueId}.${fileExtension}`;
+      const filePath = fileName;
+      const bucketName = 'group-images';
+
+      try {
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from(bucketName)
+          .upload(filePath, selectedFile, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) throw uploadError;
+        if (!uploadData) throw new Error("Upload bem-sucedido, mas sem dados retornados.");
+
+        const { data: publicUrlData } = supabase.storage
+          .from(bucketName)
+          .getPublicUrl(filePath);
+
+        if (!publicUrlData || !publicUrlData.publicUrl) {
+          throw new Error('Imagem carregada, mas falha ao obter URL pública.');
+        }
+        imageUrl = publicUrlData.publicUrl;
+        console.log(`Imagem carregada para novo grupo: ${imageUrl}`);
+
+      } catch (error) {
+        console.error("Erro no upload da imagem:", error);
+        toast.error(`Falha no upload da imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     const groupPayload = {
-        name: data.name,
-        description: data.description || null,
-        sport: data.sport as SportType,
-        image_url: data.image || null
+      name: data.name,
+      description: data.description || null,
+      sport: data.sport as SportType,
+      image_url: imageUrl
     };
 
-    mutation.mutate(groupPayload); 
+    mutation.mutate(groupPayload);
   };
 
   if (loadingAuth) {
-     return (
-       <MobileLayout
-         header={<TopNav title="Criar Grupo" backHref="/groups" />}
-         footer={<BottomNav />}
-       >
-         <div className="p-4 space-y-6">
-            <Skeleton className="h-10 w-3/4" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-10 w-full" />
-         </div>
-       </MobileLayout>
-     );
+    return (
+      <MobileLayout
+        header={<TopNav title="Criar Grupo" backHref="/groups" />}
+        footer={<BottomNav />}
+      >
+        <div className="p-4 space-y-6">
+          <Skeleton className="h-10 w-3/4" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="aspect-video w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      </MobileLayout>
+    );
   }
 
   if (!authUser) {
@@ -128,10 +185,26 @@ export default function CreateGroupPage() {
               Preencha os dados abaixo para criar um novo grupo esportivo.
             </p>
             
-            <GroupForm onSubmit={handleSubmit} isLoading={mutation.isPending} />
+            <Card>
+              <CardContent className="p-4">
+                <GroupForm
+                  onSubmit={handleSubmit}
+                  isLoading={isSubmitting || isProcessingImage || mutation.isPending}
+                  imagePreviewUrl={displayImageUrl}
+                  currentImageUrl={null}
+                  isUploadingImage={isSubmitting && selectedFile != null}
+                  triggerFileInput={triggerFileInput}
+                  onFileChange={onSelectFile}
+                  fileInputRef={fileInputRef}
+                />
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>
+
+      {renderCropModal()}
+
     </MobileLayout>
   );
 }

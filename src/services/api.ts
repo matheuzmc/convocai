@@ -1125,38 +1125,52 @@ export const updateGroup = async (
   updates: Partial<Pick<Group, 'name' | 'description' | 'sport' | 'image'>>
 ): Promise<void> => {
   const supabase = createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    console.error("User not authenticated for updateGroup", authError);
-    throw new Error("Usuário não autenticado.");
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("User not authenticated");
+
+  // 1. Verify admin privileges (Important security check!)
+  const { data: membership, error: adminError } = await supabase
+    .from('group_members')
+    .select('is_admin')
+    .eq('group_id', groupId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (adminError) {
+    console.error(`Error checking admin status for user ${user.id} in group ${groupId}:`, adminError);
+    throw adminError;
+  }
+  
+  if (!membership?.is_admin) {
+    console.warn(`User ${user.id} attempted to update group ${groupId} without admin privileges.`);
+    throw new Error("Unauthorized: Only group admins can update group settings.");
   }
 
-  // Check if the user is an admin of the group
-  const { isAdmin } = await checkGroupAdminStatus(groupId, user.id);
-  if (!isAdmin) {
-    throw new Error("Apenas administradores podem atualizar o grupo.");
+  // 2. Prepare the update payload (map frontend names to DB names if necessary)
+  const updatePayload: TablesUpdate<"groups"> = {};
+  if (Object.hasOwn(updates, 'name')) updatePayload.name = updates.name;
+  if (Object.hasOwn(updates, 'description')) updatePayload.description = updates.description;
+  if (Object.hasOwn(updates, 'sport')) updatePayload.sport = updates.sport as SportType;
+  // Assume o campo 'image' no frontend corresponde a 'image_url' no DB
+  if (Object.hasOwn(updates, 'image')) updatePayload.image_url = updates.image;
+
+  if (Object.keys(updatePayload).length === 0) {
+    // console.log("No data provided to update group."); // Mantém este log? Ou remove?
+    return; // Nothing to update
   }
 
-  // Map frontend 'image' field to database 'image_url' if present
-  const dbUpdates: Partial<Database['public']['Tables']['groups']['Row']> = {};
-  if (updates.name !== undefined) dbUpdates.name = updates.name;
-  if (updates.description !== undefined) dbUpdates.description = updates.description;
-  if (updates.sport !== undefined) dbUpdates.sport = updates.sport;
-  if (updates.image !== undefined) dbUpdates.image_url = updates.image; // Map to image_url
-
-  console.log('Updating group with data:', dbUpdates); // Log data being sent
-
-  // Proceed with the update only if the user is an admin
-  const { error } = await supabase
+  // 3. Perform the update
+  const { error: updateError } = await supabase
     .from('groups')
-    .update(dbUpdates) // Use the mapped dbUpdates
+    .update(updatePayload)
     .eq('id', groupId);
 
-  if (error) {
-    console.error("Error updating group in Supabase:", error);
-    throw new Error(`Falha ao atualizar grupo: ${error.message}`); // Provide more context
+  if (updateError) {
+    console.error(`Error updating group ${groupId}:`, updateError); // Mantém erro
+    throw updateError;
   }
-  console.log(`Group ${groupId} updated successfully by user ${user.id}`);
+
+  // console.log(`Group ${groupId} updated successfully by user ${user.id}`); // REMOVIDO
 };
 
 /**
