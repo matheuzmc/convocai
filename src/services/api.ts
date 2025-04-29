@@ -36,6 +36,7 @@ export interface UserProfileData {
 type GroupMemberCount = { count: number };
 type GroupRowWithCount = Database['public']['Tables']['groups']['Row'] & {
     group_members: GroupMemberCount[] | null;
+    is_active: boolean;
 };
 type GroupMemberEntry = {
     group_id: string;
@@ -183,7 +184,7 @@ export const getUserGroups = async (): Promise<Group[]> => {
 
   const { data: groupsData, error: groupsError } = await supabase
     .from('groups')
-    .select('*, group_members!inner(count)') // Select all from groups + count
+    .select('*, is_active, group_members!inner(count)') // Select all from groups + count
     .in('id', groupIds)
     .returns<GroupRowWithCount[]>(); // Specify return type
 
@@ -196,6 +197,7 @@ export const getUserGroups = async (): Promise<Group[]> => {
     sport: group.sport as SportType, // Cast needed if DB type is different
     image: group.image_url || '',
     createdBy: group.created_by,
+    is_active: group.is_active,
     admins: [], 
     members: [], 
     events: [], 
@@ -341,7 +343,7 @@ export const getGroupDetails = async (groupId: string): Promise<{
   // Fetch Group Details
   const { data: groupData, error: groupError } = await supabase
     .from('groups')
-    .select('*, group_members!inner(count)') // Select all + count
+    .select('*, is_active, group_members!inner(count)') // Select all + count
     .eq('id', groupId)
     .returns<GroupRowWithCount[]>() // Use defined type
     .maybeSingle(); 
@@ -376,6 +378,7 @@ export const getGroupDetails = async (groupId: string): Promise<{
   // Map members data para o novo tipo
   const members: GroupMemberWithProfile[] = (membersData ?? []).map((member) => ({
     id: member.profiles?.id ?? member.user_id,
+    user_id: member.user_id,
     name: member.profiles?.name ?? 'Nome não encontrado',
     last_name: member.profiles?.last_name,
     nickname: member.profiles?.nickname,
@@ -402,6 +405,7 @@ export const getGroupDetails = async (groupId: string): Promise<{
     sport: groupData.sport as SportType, 
     image: groupData.image_url || '',
     createdBy: groupData.created_by,
+    is_active: groupData.is_active,
     // Extract admin IDs from membersData
     admins: membersData?.filter(m => m.is_admin).map(m => m.user_id) ?? [], 
     // Map member IDs
@@ -1425,6 +1429,42 @@ export const removeGroupMember = async (groupId: string, userId: string): Promis
     throw error;
   }
   console.log(`User ${userId} removed from group ${groupId}.`);
+};
+
+/**
+ * Allows the current authenticated user to leave a group.
+ * Handles cases for the last member (deletes group) and the last admin (promotes oldest member).
+ *
+ * @param groupId The ID of the group to leave.
+ * @returns Promise resolving when the operation is complete.
+ * @throws Error if user is not authenticated, not a member, or DB error occurs (specific errors might be raised by the DB function).
+ */
+export const leaveGroup = async (groupId: string): Promise<void> => {
+  const supabase = createClient();
+  const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !currentUser) {
+    console.error("User not authenticated for leaveGroup", authError);
+    throw new Error("User not authenticated");
+  }
+
+  const userId = currentUser.id;
+
+  // Chamar a função PostgreSQL que encapsula a lógica de transação
+  const { error: rpcError } = await supabase.rpc('leave_group_transaction', {
+     p_group_id: groupId,
+     p_user_id: userId
+  });
+
+  if (rpcError) {
+      console.error(`Error leaving group ${groupId} for user ${userId} via RPC:`, rpcError);
+      // Tentar repassar a mensagem de erro da função do DB, se disponível
+      // A função PL/pgSQL pode usar RAISE EXCEPTION com mensagens específicas.
+      // O Supabase client pode encapsular isso em rpcError.message.
+      throw new Error(rpcError.message || "Failed to leave the group. Please try again.");
+  }
+
+  console.log(`User ${userId} successfully left group ${groupId} (or group deleted if last member).`);
 };
 
 /**

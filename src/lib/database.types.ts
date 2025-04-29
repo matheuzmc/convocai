@@ -345,6 +345,10 @@ export type Database = {
         Args: { p_group_id: string } | { p_group_id: string; p_user_id: string }
         Returns: boolean
       }
+      leave_group_transaction: {
+        Args: { p_group_id: string; p_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       event_attendee_status: "confirmed" | "declined" | "pending"
