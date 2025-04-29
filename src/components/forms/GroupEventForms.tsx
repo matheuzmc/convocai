@@ -7,7 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Calendar, Clock, MapPin, Repeat, UploadCloud } from "lucide-react";
+import { Calendar, Clock, MapPin, Repeat, UploadCloud, Camera } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import Image from "next/image";
+import { toast } from "sonner";
 
 export interface EventFormData {
   title: string;
@@ -39,6 +42,12 @@ interface GroupFormProps {
   initialData?: Partial<GroupFormData>;
   isEdit?: boolean;
   isLoading?: boolean;
+  imagePreviewUrl: string | null;
+  currentImageUrl: string | null;
+  isUploadingImage: boolean;
+  triggerFileInput: () => void;
+  onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 export function EventForm({ onSubmit, initialData, isEdit = false, isLoading = false }: EventFormProps) {
@@ -198,18 +207,19 @@ export function EventForm({ onSubmit, initialData, isEdit = false, isLoading = f
   );
 }
 
-export function GroupForm({ onSubmit, initialData, isEdit = false, isLoading = false }: GroupFormProps) {
+export function GroupForm({ onSubmit, initialData, isEdit = false, isLoading = false, imagePreviewUrl, currentImageUrl, isUploadingImage, triggerFileInput, onFileChange, fileInputRef }: GroupFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
-    const data: GroupFormData = {
+    const data: Omit<GroupFormData, 'image'> & { image?: string } = {
       name: String(formData.get('name') || ''),
       description: String(formData.get('description') || ''),
       sport: String(formData.get('sport') || ''),
-      image: String(formData.get('image') || ''),
     };
-    onSubmit(data);
+    onSubmit(data as GroupFormData);
   };
+
+  const displayImageUrl = imagePreviewUrl || currentImageUrl;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -221,7 +231,7 @@ export function GroupForm({ onSubmit, initialData, isEdit = false, isLoading = f
             name="name"
             placeholder="Ex: Futebol das Terças"
             defaultValue={initialData?.name || ''}
-            disabled={isLoading}
+            disabled={isLoading || isUploadingImage}
             required
           />
         </div>
@@ -234,13 +244,13 @@ export function GroupForm({ onSubmit, initialData, isEdit = false, isLoading = f
             placeholder="Objetivo, regras, etc."
             defaultValue={initialData?.description || ''}
             className="min-h-[100px]"
-            disabled={isLoading}
+            disabled={isLoading || isUploadingImage}
           />
         </div>
         
         <div className="space-y-2">
           <Label htmlFor="sport">Esporte Principal</Label>
-          <Select name="sport" defaultValue={initialData?.sport || 'futebol'} disabled={isLoading}>
+          <Select name="sport" defaultValue={initialData?.sport || 'futebol'} disabled={isLoading || isUploadingImage}>
             <SelectTrigger id="sport">
               <SelectValue />
             </SelectTrigger>
@@ -261,27 +271,62 @@ export function GroupForm({ onSubmit, initialData, isEdit = false, isLoading = f
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="image">Imagem do Grupo (URL)</Label>
-          <div className="relative">
-            <UploadCloud className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="image"
-              name="image"
-              placeholder="https://exemplo.com/imagem.jpg"
-              className="pl-9"
-              defaultValue={initialData?.image || ''}
-              type="url"
-              disabled={isLoading}
-            />
+          <Label>Imagem do Grupo (Banner)</Label>
+          <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-dashed border-input flex items-center justify-center bg-muted/40">
+            {isUploadingImage ? (
+              <div className="flex flex-col items-center justify-center text-muted-foreground">
+                <Skeleton className="h-12 w-12 rounded-full mb-2" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            ) : displayImageUrl ? (
+              <Image
+                src={displayImageUrl}
+                alt="Prévia da imagem do grupo"
+                fill
+                className="object-cover"
+                unoptimized
+                onError={() => {
+                  if (imagePreviewUrl && displayImageUrl === imagePreviewUrl) {
+                      toast.error("Erro ao carregar prévia da imagem.");
+                  }
+                }}
+              />
+            ) : (
+              <div className="text-center text-muted-foreground p-4">
+                <UploadCloud className="mx-auto h-10 w-10 mb-2" />
+                <p className="text-sm">Nenhuma imagem selecionada</p>
+                <p className="text-xs">Clique no ícone da câmera para adicionar</p>
+              </div>
+            )}
+
+            {!isUploadingImage && (
+              <button
+                type="button"
+                onClick={triggerFileInput}
+                disabled={isLoading}
+                className="absolute bottom-2 right-2 bg-background/80 hover:bg-background text-foreground rounded-full p-2 transition-colors duration-200 border border-border shadow-sm"
+                aria-label="Alterar imagem do grupo"
+              >
+                <Camera className="h-5 w-5" />
+              </button>
+            )}
           </div>
-           <p className="text-xs text-muted-foreground">
-             Opcional. Cole a URL de uma imagem para o grupo.
-           </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png, image/jpeg, image/webp"
+            onChange={onFileChange}
+            className="hidden"
+            disabled={isLoading || isUploadingImage}
+          />
+          <p className="text-xs text-muted-foreground">
+            Opcional. Recomendado: formato paisagem (16:9).
+          </p>
         </div>
       </div>
       
-      <Button type="submit" className="w-full" disabled={isLoading}>
-        {isLoading ? 'Criando...' : (isEdit ? 'Salvar Alterações' : 'Criar Grupo')}
+      <Button type="submit" className="w-full" disabled={isLoading || isUploadingImage}>
+        {isUploadingImage ? 'Enviando imagem...' : (isLoading ? (isEdit ? 'Salvando...' : 'Criando...') : (isEdit ? 'Salvar Alterações' : 'Criar Grupo'))}
       </Button>
     </form>
   );

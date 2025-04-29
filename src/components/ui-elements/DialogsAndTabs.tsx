@@ -11,6 +11,7 @@ import { EventCard } from "@/components/cards/GroupEventCards";
 import { MemberCard } from "@/components/cards/NotificationMemberCards";
 import { Event as EventType } from "@/lib/types";
 import { GroupMemberWithProfile } from "@/lib/types";
+import { toast } from "sonner";
 
 // Placeholder function (replace with actual data fetching if needed)
 /* // Removed unused placeholder function
@@ -37,10 +38,65 @@ interface InviteDialogProps {
 }
 
 export function InviteDialog({ open, onOpenChange, groupName, inviteLink }: InviteDialogProps) {
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(inviteLink);
-    // Aqui seria implementada a lógica para mostrar uma notificação de sucesso
-    console.log("Link copiado para a área de transferência");
+  const copyToClipboard = async () => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) { 
+        await navigator.clipboard.writeText(inviteLink);
+        console.log("Link copiado (API Clipboard)");
+        toast.success("Link copiado para a área de transferência!");
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = inviteLink;
+        
+        textArea.style.position = "absolute";
+        textArea.style.left = "-9999px";
+        textArea.style.top = "0";
+        textArea.style.opacity = "0";
+        
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        let success = false;
+        try {
+          success = document.execCommand('copy');
+          console.log("Link copiado (execCommand fallback):");
+        } catch (err) {
+          console.error("Erro ao copiar com execCommand:", err);
+          success = false;
+        }
+        
+        document.body.removeChild(textArea);
+        
+        if (success) {
+          toast.success("Link copiado para a área de transferência!");
+        } else {
+          throw new Error("Não foi possível copiar o link.");
+        }
+      }
+    } catch (error) {
+      console.error("Falha ao copiar o link:", error);
+      toast.error(`Erro ao copiar: ${error instanceof Error ? error.message : "Tente manualmente."}`);
+    }
+  };
+
+  // Função para compartilhar via WhatsApp
+  const handleShareWhatsApp = () => {
+    // Monta a mensagem com o nome do grupo e o link
+    const messageText = `Olá! Use este link para entrar no meu grupo '${groupName}' no Convocai: ${inviteLink}`;
+    // Codifica a mensagem para URL
+    const encodedText = encodeURIComponent(messageText);
+    // Cria a URL do WhatsApp
+    const whatsappUrl = `https://wa.me/?text=${encodedText}`;
+
+    try {
+      // Abre a URL (funciona em desktop e mobile)
+      window.open(whatsappUrl, '_blank')?.focus(); // Adiciona focus() para tentar trazer a janela/aba para frente
+      console.log("Tentativa de compartilhar via WhatsApp URL:", whatsappUrl);
+    } catch (error) {
+      console.error("Erro ao tentar abrir link do WhatsApp:", error);
+      toast.error("Não foi possível abrir o WhatsApp. Verifique se está instalado.");
+    }
   };
 
   return (
@@ -58,7 +114,7 @@ export function InviteDialog({ open, onOpenChange, groupName, inviteLink }: Invi
               value={inviteLink}
               readOnly
               className="w-full"
-              onFocus={(e) => e.target.blur()}
+              aria-label="Link de convite do grupo"
             />
           </div>
           <Button size="icon" onClick={copyToClipboard}>
@@ -68,10 +124,14 @@ export function InviteDialog({ open, onOpenChange, groupName, inviteLink }: Invi
         <div className="mt-4">
           <h4 className="text-sm font-medium mb-2">Compartilhar via</h4>
           <div className="flex gap-2">
-            <Button variant="outline" className="flex-1">
+            <Button 
+              variant="outline" 
+              className="flex-1" 
+              onClick={handleShareWhatsApp}
+            >
               <Share2 className="h-4 w-4 mr-2" /> WhatsApp
             </Button>
-            <Button variant="outline" className="flex-1">
+            <Button variant="outline" className="flex-1" disabled>
               <Share2 className="h-4 w-4 mr-2" /> Email
             </Button>
           </div>
