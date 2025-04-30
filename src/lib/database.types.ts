@@ -196,6 +196,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          is_active: boolean
           name: string
           sport: Database["public"]["Enums"]["sport_type"]
           updated_at: string
@@ -206,6 +207,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          is_active?: boolean
           name: string
           sport: Database["public"]["Enums"]["sport_type"]
           updated_at?: string
@@ -216,6 +218,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          is_active?: boolean
           name?: string
           sport?: Database["public"]["Enums"]["sport_type"]
           updated_at?: string
@@ -347,7 +350,7 @@ export type Database = {
       }
       leave_group_transaction: {
         Args: { p_group_id: string; p_user_id: string }
-        Returns: undefined
+        Returns: Json
       }
     }
     Enums: {

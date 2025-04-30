@@ -79,10 +79,15 @@ export interface EventDetailsRpcResponse {
   isAdmin: boolean; // Garantir que está aqui
 }
 
-// Adicionar tipo para o retorno esperado da RPC calculate_member_attendance
-interface MemberAttendanceStats {
-  attendanceRate: number;
-  eventsConsidered: number;
+// --- Helper: Get Authenticated Supabase Client --- 
+async function getAuthenticatedSupabaseClient() {
+    const supabase = createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+        console.error("User not authenticated");
+        throw new Error("User not authenticated"); 
+    }
+    return { supabase, user };
 }
 
 /**
@@ -1124,115 +1129,266 @@ export const updateGroup = async (
   groupId: string,
   updates: Partial<Pick<Group, 'name' | 'description' | 'sport' | 'image'>>
 ): Promise<void> => {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated");
+  const { supabase } = await getAuthenticatedSupabaseClient();
 
-  // 1. Verify admin privileges (Important security check!)
+  // 1. Buscar URL da imagem atual ANTES de atualizar
+  let oldImageUrl: string | null = null;
+  try {
+    const { data: currentGroupData, error: fetchError } = await supabase
+      .from('groups')
+      .select('image_url')
+      .eq('id', groupId)
+      .maybeSingle();
+    
+    if (fetchError && fetchError.code !== 'PGRST116') { // Ignora erro 'not found'
+      console.error(`Error fetching current image URL for group ${groupId} before update:`, fetchError);
+      // Decide se quer lançar o erro ou apenas logar e continuar sem deletar a imagem antiga
+      // Lançar é mais seguro para evitar inconsistências, mas pode impedir updates de texto se a busca falhar.
+      // Optando por logar e continuar.
+      // throw fetchError; 
+    }
+    oldImageUrl = currentGroupData?.image_url ?? null;
+
+  } catch (fetchCatchError) {
+      console.error(`Unexpected error fetching current image URL for group ${groupId}:`, fetchCatchError);
+      // Continuar mesmo se a busca falhar
+  }
+
+  // **A verificação de admin foi removida daqui, pois deve ser feita pela RLS**
+  /*
   const { data: membership, error: adminError } = await supabase
-    .from('group_members')
-    .select('is_admin')
-    .eq('group_id', groupId)
-    .eq('user_id', user.id)
-    .maybeSingle();
+    // ... admin check ...
+  */
 
-  if (adminError) {
-    console.error(`Error checking admin status for user ${user.id} in group ${groupId}:`, adminError);
-    throw adminError;
-  }
-  
-  if (!membership?.is_admin) {
-    console.warn(`User ${user.id} attempted to update group ${groupId} without admin privileges.`);
-    throw new Error("Unauthorized: Only group admins can update group settings.");
-  }
-
-  // 2. Prepare the update payload (map frontend names to DB names if necessary)
+  // 2. Preparar o payload de update
   const updatePayload: TablesUpdate<"groups"> = {};
   if (Object.hasOwn(updates, 'name')) updatePayload.name = updates.name;
   if (Object.hasOwn(updates, 'description')) updatePayload.description = updates.description;
   if (Object.hasOwn(updates, 'sport')) updatePayload.sport = updates.sport as SportType;
-  // Assume o campo 'image' no frontend corresponde a 'image_url' no DB
   if (Object.hasOwn(updates, 'image')) updatePayload.image_url = updates.image;
 
   if (Object.keys(updatePayload).length === 0) {
-    // console.log("No data provided to update group."); // Mantém este log? Ou remove?
     return; // Nothing to update
   }
 
-  // 3. Perform the update
+  // 3. Perform the database update (RLS fará a checagem de admin e is_active)
   const { error: updateError } = await supabase
     .from('groups')
     .update(updatePayload)
     .eq('id', groupId);
 
   if (updateError) {
-    console.error(`Error updating group ${groupId}:`, updateError); // Mantém erro
+    console.error(`Error updating group ${groupId} in database:`, updateError);
+    // Checar erro de RLS?
+    if (updateError.code === '42501') {
+        throw new Error("Permission denied. Only admins can update active groups.");
+    }
     throw updateError;
   }
+  console.log(`Group ${groupId} updated successfully in database.`);
 
-  // console.log(`Group ${groupId} updated successfully by user ${user.id}`); // REMOVIDO
+  // 4. Deletar imagem antiga do Storage se update foi sucesso, uma NOVA imagem foi fornecida, E a URL mudou
+  const newImageUrl = updates.image; 
+  if (oldImageUrl && newImageUrl && newImageUrl !== oldImageUrl) { 
+      console.log(`Requesting deletion of old group image: ${oldImageUrl}`);
+      await _removeImageFromUrl(oldImageUrl, 'group-images');
+  }
+
+};
+
+// --- Helper Function: Delete Group Image --- 
+async function _deleteGroupImageFromStorage(imageUrl: string | null | undefined, groupIdForLog: string) {
+  if (!imageUrl) {
+    console.log(`[Helper] No image URL provided for group ${groupIdForLog}, skipping storage delete.`);
+    return; 
+  }
+  
+  const supabase = createClient();
+  console.log(`[Helper] Attempting to delete image: ${imageUrl}`);
+  try {
+    const url = new URL(imageUrl);
+    const bucketName = 'group-images'; 
+    const pathPrefix = `/storage/v1/object/public/${bucketName}/`;
+    if (url.pathname.startsWith(pathPrefix)) {
+       const filePath = decodeURIComponent(url.pathname.substring(pathPrefix.length));
+       console.log(`[Helper] Deleting from storage: Bucket=${bucketName}, Path=${filePath}`);
+       
+       const { error: deleteStorageError } = await supabase
+        .storage
+        .from(bucketName)
+        .remove([filePath]);
+
+       if (deleteStorageError) {
+          console.error(`[Helper] Failed to delete image '${filePath}' from storage for group ${groupIdForLog}:`, deleteStorageError);
+       } else {
+          console.log(`[Helper] Image '${filePath}' deleted successfully from storage for group ${groupIdForLog}.`); 
+       }
+    } else {
+       console.warn(`[Helper] Could not extract file path from image URL: ${imageUrl}`);
+    }
+  } catch (urlError) {
+     console.error(`[Helper] Error processing image URL for deletion: ${imageUrl}`, urlError);
+  }
+}
+
+// --- Helper Function: Remove Image From URL --- 
+async function _removeImageFromUrl(imageUrl: string | null | undefined, bucketName: string) {
+  if (!imageUrl) {
+    console.log(`[Helper _removeImageFromUrl] No URL provided for bucket ${bucketName}, skipping delete.`);
+    return;
+  }
+  const supabase = createClient(); // Precisa do cliente aqui também
+  console.log(`[Helper _removeImageFromUrl] Attempting to delete image: ${imageUrl}`);
+  try {
+    const url = new URL(imageUrl);
+    const pathPrefix = `/storage/v1/object/public/${bucketName}/`;
+    if (url.pathname.startsWith(pathPrefix)) {
+      const filePath = decodeURIComponent(url.pathname.substring(pathPrefix.length));
+      console.log(`[Helper _removeImageFromUrl] Deleting from storage: Bucket=${bucketName}, Path=${filePath}`);
+      const { error: deleteStorageError } = await supabase.storage.from(bucketName).remove([filePath]);
+      if (deleteStorageError) {
+          console.warn(`[Helper _removeImageFromUrl] Failed to delete image '${filePath}' from bucket ${bucketName}:`, deleteStorageError);
+      } else {
+          console.log(`[Helper _removeImageFromUrl] Image '${filePath}' deleted successfully from bucket ${bucketName}.`);
+      }
+    } else {
+        console.warn(`[Helper _removeImageFromUrl] Could not extract file path from image URL: ${imageUrl}`);
+    }
+  } catch (urlError) {
+      console.error(`[Helper _removeImageFromUrl] Error processing image URL for deletion: ${imageUrl}`, urlError);
+  }
+}
+
+// --- Helper Function: Delete Group from DB --- 
+async function _deleteGroupFromDB(groupId: string) {
+  const supabase = createClient();
+  console.log(`[Helper] Attempting to delete group ${groupId} from database...`);
+  const { error: deleteDbError } = await supabase
+    .from('groups')
+    .delete()
+    .eq('id', groupId);
+
+  if (deleteDbError) {
+    console.error(`[Helper] Error deleting group ${groupId} from database:`, deleteDbError);
+    if (deleteDbError.code === '42501') { // RLS Error
+      throw new Error("Permission denied. Only admins can delete groups.");
+    }
+    throw deleteDbError;
+  }
+  console.log(`[Helper] Group ${groupId} deleted successfully from database.`);
+}
+
+/**
+ * Allows the current authenticated user to leave a group.
+ * Handles cases for the last member (deletes group) and the last admin (promotes oldest member).
+ *
+ * @param groupId The ID of the group to leave.
+ * @returns Promise resolving when the operation is complete.
+ * @throws Error if user is not authenticated, not a member, or DB error occurs (specific errors might be raised by the DB function).
+ */
+export const leaveGroup = async (groupId: string): Promise<void> => {
+    const { supabase, user: currentUser } = await getAuthenticatedSupabaseClient(); 
+  
+  const userId = currentUser.id;
+
+  // Chamar a função PostgreSQL que retorna JSON
+  // Tipo esperado: { should_delete: boolean, image_url_to_delete: string | null }
+  const { data: rpcResult, error: rpcError } = await supabase.rpc('leave_group_transaction', {
+     p_group_id: groupId,
+     p_user_id: userId
+  }); 
+  
+  // --- Adicionar Interface e Asserção de Tipo ---
+  interface LeaveGroupRpcResult {
+    should_delete: boolean;
+    image_url_to_delete: string | null;
+  }
+  // Converter para unknown primeiro, depois para o tipo desejado
+  const result = rpcResult as unknown as LeaveGroupRpcResult; 
+  // ---------------------------------------------
+
+  if (rpcError) {
+      console.error(`Error leaving group ${groupId} for user ${userId} via RPC:`, rpcError);
+      throw new Error(rpcError.message || "Failed to leave the group. Please try again.");
+  }
+
+  // Processar resultado da RPC
+  if (result && result.should_delete) {
+    console.log(`RPC indicated group ${groupId} should be deleted. Image URL: ${result.image_url_to_delete}`);
+    try {
+      // Deletar imagem (helper cuidará se URL for null)
+      await _deleteGroupImageFromStorage(result.image_url_to_delete, groupId);
+      
+      // Deletar grupo do DB
+      await _deleteGroupFromDB(groupId);
+
+      console.log(`Group ${groupId} deletion process completed after last member left.`);
+
+    } catch (deleteError) {
+       // Erros de deleção (DB ou Storage crítico) foram relançados pelos helpers
+       console.error(`Error during delete process for group ${groupId} after last member left:`, deleteError);
+       // Lançar um erro para a mutation na UI
+       throw new Error(`Successfully left the group, but failed during the final group deletion: ${(deleteError as Error).message}`);
+    }
+  } else {
+    // Se não for para deletar, apenas logar a ação da RPC (saída normal ou desativação)
+     console.log(`User ${userId} successfully processed leave/deactivate action for group ${groupId}. No deletion needed.`);
+  }
+  
+  // Se chegou aqui, a operação principal (sair/desativar ou sair/deletar) foi concluída ou o erro foi lançado.
+  // A invalidação de queries e redirecionamento ficam na UI.
 };
 
 /**
  * Deletes a specific group.
  * Only allowed if the current user is an admin of the group (checked via RLS).
+ * Also deletes the associated image from storage.
  * 
  * @param {string} groupId The ID of the group to delete.
  * @returns {Promise<void>} Resolves when the deletion is complete.
- * @throws {Error} If the user is not authenticated, not an admin, or if there's a DB error.
+ * @throws {Error} If the user is not authenticated, not an admin, fails to delete storage object, or if there's a DB error.
  */
-export const deleteGroup = async (groupId: string): Promise<void> => {
-  const supabase = createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    console.error("User not authenticated for deleteGroup", authError);
-    throw new Error("Usuário não autenticado.");
+export const deleteGroup = async (groupId: string, knownImageUrl?: string | null): Promise<void> => {
+  const { supabase } = await getAuthenticatedSupabaseClient();
+   
+  let imageUrlToDelete: string | null | undefined = knownImageUrl;
+
+  try {
+    // 1. Buscar image_url apenas se não foi fornecida (usa a instância 'supabase' do helper)
+    if (imageUrlToDelete === undefined) {
+      console.log(`[deleteGroup] Image URL not provided, fetching from DB for group ${groupId}...`);
+      const { data: groupData, error: fetchError } = await supabase
+        .from('groups')
+        .select('image_url')
+        .eq('id', groupId)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') { 
+        console.error(`Error fetching group image_url before deletion for group ${groupId}:`, fetchError);
+        throw fetchError; 
+      }
+      imageUrlToDelete = groupData?.image_url ?? null;
+    } else {
+       console.log(`[deleteGroup] Using provided image URL: ${imageUrlToDelete}`);
+    }
+
+    // PASSO 2: Deletar imagem do Storage PRIMEIRO (usando helper)
+    await _deleteGroupImageFromStorage(imageUrlToDelete, groupId); 
+
+    // PASSO 3: Deletar o grupo do banco de dados (usando helper)
+    await _deleteGroupFromDB(groupId);
+
+    console.log(`[deleteGroup] Overall deletion process completed for group ${groupId}.`);
+
+  } catch (error) {
+    console.error(`An unexpected error occurred during deleteGroup for ${groupId}:`, error);
+    throw error; // Relança qualquer erro para a mutation tratar
   }
-
-  // Check if the user is an admin of the group
-  const { isAdmin } = await checkGroupAdminStatus(groupId, user.id);
-  if (!isAdmin) {
-    throw new Error("Apenas administradores podem excluir o grupo.");
-  }
-
-  console.log(`Attempting to delete group ${groupId} by admin user ${user.id}`);
-
-  // NOTE: This currently only deletes the group record.
-  // Consider implementing deletion of associated data (members, events, invites, images)
-  // perhaps using a Supabase Edge Function triggered by the delete or called here.
-
-  // Proceed with deletion only if the user is an admin
-  const { error } = await supabase
-    .from('groups')
-    .delete()
-    .eq('id', groupId);
-
-  if (error) {
-    console.error("Error deleting group in Supabase:", error);
-    throw new Error(`Falha ao excluir grupo: ${error.message}`); // Provide more context
-  }
-  console.log(`Group ${groupId} deleted successfully by user ${user.id}`);
-
-  // TODO: Trigger deletion of associated group images from storage.
-  // This might require listing files in the group's folder and deleting them.
-  // Example (needs error handling and might be better in an Edge Function):
-  /*
-  const bucketName = 'group-images';
-  const { data: files, error: listError } = await supabase.storage.from(bucketName).list(groupId);
-  if (files && files.length > 0) {
-      const filePaths = files.map(file => `${groupId}/${file.name}`);
-      const { error: removeError } = await supabase.storage.from(bucketName).remove(filePaths);
-      if (removeError) console.warn(`Failed to delete some images for group ${groupId}:`, removeError);
-  } else if (listError) {
-      console.warn(`Failed to list images for deleted group ${groupId}:`, listError);
-  }
-  */
 };
 
-// --- END: New functions for Group Settings ---
+// --- END: Refactored Group Deletion ---
 
 // --- START: Function for Group Image Upload ---
-/* REMOVE START */
 /**
  * Uploads a group image to Supabase Storage.
  * 
@@ -1242,12 +1398,8 @@ export const deleteGroup = async (groupId: string): Promise<void> => {
  * @throws {Error} If upload fails or public URL cannot be retrieved.
  */
 export const uploadGroupImage = async (file: File, groupId: string): Promise<string> => {
-  const supabase = createClient();
+  const { supabase } = await getAuthenticatedSupabaseClient();
   
-  // Garante que o usuário está autenticado (embora a policy do storage deva ser a validação principal)
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated");
-
   // Criar um nome de arquivo único para evitar colisões e facilitar a organização
   const fileExtension = file.name.split('.').pop();
   const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`;
@@ -1286,7 +1438,6 @@ export const uploadGroupImage = async (file: File, groupId: string): Promise<str
   console.log(`Group image uploaded successfully: ${publicUrlData.publicUrl}`);
   return publicUrlData.publicUrl;
 };
-/* REMOVE END */
 // --- END: Function for Group Image Upload ---
 
 /**
@@ -1446,93 +1597,6 @@ export const removeGroupMember = async (groupId: string, userId: string): Promis
 };
 
 /**
- * Allows the current authenticated user to leave a group.
- * Handles cases for the last member (deletes group) and the last admin (promotes oldest member).
- *
- * @param groupId The ID of the group to leave.
- * @returns Promise resolving when the operation is complete.
- * @throws Error if user is not authenticated, not a member, or DB error occurs (specific errors might be raised by the DB function).
- */
-export const leaveGroup = async (groupId: string): Promise<void> => {
-  const supabase = createClient();
-  const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !currentUser) {
-    console.error("User not authenticated for leaveGroup", authError);
-    throw new Error("User not authenticated");
-  }
-
-  const userId = currentUser.id;
-
-  // Chamar a função PostgreSQL que encapsula a lógica de transação
-  const { error: rpcError } = await supabase.rpc('leave_group_transaction', {
-     p_group_id: groupId,
-     p_user_id: userId
-  });
-
-  if (rpcError) {
-      console.error(`Error leaving group ${groupId} for user ${userId} via RPC:`, rpcError);
-      // Tentar repassar a mensagem de erro da função do DB, se disponível
-      // A função PL/pgSQL pode usar RAISE EXCEPTION com mensagens específicas.
-      // O Supabase client pode encapsular isso em rpcError.message.
-      throw new Error(rpcError.message || "Failed to leave the group. Please try again.");
-  }
-
-  console.log(`User ${userId} successfully left group ${groupId} (or group deleted if last member).`);
-};
-
-/**
- * Updates an existing event.
- * Requires the calling user to be an admin of the event's group (enforced by RLS).
- * 
- * @param eventId The ID of the event to update.
- * @param eventData An object containing the event fields to update.
- * @returns Promise resolving when the update is complete.
- * @throws Error if user is not authenticated, not an admin, or DB error occurs.
- */
-export const updateEvent = async (
-    eventId: string, 
-    eventData: Partial<Omit<Event, 'id' | 'groupId' | 'attendees' | 'createdAt'>> // Dados atualizáveis
-): Promise<void> => {
-    const supabase = createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        console.error("User not authenticated for updateEvent", authError);
-        throw new Error("User not authenticated");
-    }
-
-    // Mapear para nomes de coluna do DB (se necessário)
-    const dbUpdatePayload: Partial<Database['public']['Tables']['events']['Update']> = {
-        title: eventData.title,
-        description: eventData.description,
-        location: eventData.location,
-        event_date: eventData.date,
-        event_time: eventData.time,
-        is_periodic: eventData.isPeriodic,
-        frequency: eventData.frequency,
-        notify_before: eventData.notifyBefore,
-        // group_id e created_at não devem ser atualizados aqui
-    };
-
-    // RLS na tabela 'events' deve garantir que apenas admins do grupo podem atualizar
-    const { error } = await supabase
-        .from('events')
-        .update(dbUpdatePayload)
-        .eq('id', eventId);
-
-    if (error) {
-        console.error(`Error updating event ${eventId}:`, error);
-        // Check for RLS violation error (code 42501 in PostgreSQL)
-        if (error.code === '42501') {
-            throw new Error("Permission denied. Only group admins can update events.");
-        }
-        throw error;
-    }
-
-    console.log(`Event ${eventId} updated successfully.`);
-};
-
-/**
  * Fetches specific membership details (like joined_at) for a user in a group.
  *
  * @param groupId The ID of the group.
@@ -1568,7 +1632,6 @@ export const getGroupMembershipDetails = async (
     }
     
     // A coluna joined_at é timestamptz, Supabase retorna como string ISO 8601
-    // A validação/formatação será feita no componente
     return { joined_at: data.joined_at }; 
 
   } catch (error) {
@@ -1591,7 +1654,6 @@ export const getMemberAttendanceStats = async (
   userId: string | undefined
 ): Promise<{ attendanceRate: number; eventsConsidered: number } | null> => {
   if (!userId || !groupId) {
-    // Retornar null se os IDs não forem válidos, a função RPC não será chamada.
     return null; 
   }
 
@@ -1606,13 +1668,16 @@ export const getMemberAttendanceStats = async (
 
     if (error) {
       console.error(`Error calling calculate_member_attendance RPC for user ${userId}, group ${groupId}:`, error);
-      // Lançar o erro para ser tratado pelo useQuery
       throw error; 
     }
 
-    // Verificar e converter o tipo do retorno da RPC
-    // A função retorna Json, que pode ser um objeto com as chaves esperadas.
     const statsData = data as unknown;
+
+    // Re-declarar interface localmente se não estiver mais globalmente
+    interface MemberAttendanceStats {
+      attendanceRate: number;
+      eventsConsidered: number;
+    }
 
     if (
       statsData && 
@@ -1622,7 +1687,6 @@ export const getMemberAttendanceStats = async (
       'eventsConsidered' in statsData &&
       typeof statsData.eventsConsidered === 'number'
     ) {
-        // Converter explicitamente para o tipo esperado após a verificação
         const typedStats = statsData as MemberAttendanceStats;
          return {
             attendanceRate: typedStats.attendanceRate,
@@ -1634,9 +1698,7 @@ export const getMemberAttendanceStats = async (
     }
 
   } catch (error) {
-    // Capturar erros lançados (incluindo o do RPC)
     console.error(`Unexpected error in getMemberAttendanceStats (RPC call) for user ${userId}, group ${groupId}:`, error);
-    // Retornar null para indicar erro ao useQuery
     return null;
   }
 };
@@ -1650,7 +1712,7 @@ export const getMemberAttendanceStats = async (
  * @throws {Error} If there's a DB error.
  */
 export const getInviteDetailsByToken = async (token: string): Promise<{ groupId: string; groupName: string | null } | null> => {
-  if (!token) return null; // Retorna null se o token for inválido ou ausente
+  if (!token) return null;
 
   const supabase = createClient();
 
@@ -1662,17 +1724,15 @@ export const getInviteDetailsByToken = async (token: string): Promise<{ groupId:
         groups ( name )
       `)
       .eq('token', token)
-      .maybeSingle(); // Usa maybeSingle para retornar null se não encontrar
+      .maybeSingle();
 
     if (inviteError) {
       console.error(`Error fetching invite details for token ${token}:`, inviteError);
-      // Não lança erro para o frontend, apenas loga e retorna null
-      // throw new Error("Failed to fetch invite details."); 
       return null;
     }
 
     if (!invite || !invite.groups) {
-      // Token não encontrado ou grupo associado não existe mais
+      console.warn(`Invite not found or associated group missing for token: ${token}`);
       return null;
     }
 
@@ -1683,9 +1743,62 @@ export const getInviteDetailsByToken = async (token: string): Promise<{ groupId:
 
   } catch (error) {
     console.error("Unexpected error fetching invite details:", error);
-    return null; // Retorna null em caso de erro inesperado
+    return null;
   }
 };
 
-// Fim do arquivo
- 
+// --- FUNÇÃO RESTAURADA: updateEvent ---
+/**
+ * Updates an existing event.
+ * Requires the calling user to be an admin of the event's group (enforced by RLS).
+ * 
+ * @param eventId The ID of the event to update.
+ * @param eventData An object containing the event fields to update.
+ * @returns Promise resolving when the update is complete.
+ * @throws Error if user is not authenticated, not an admin, or DB error occurs.
+ */
+export const updateEvent = async (
+    eventId: string, 
+    eventData: Partial<Omit<Event, 'id' | 'groupId' | 'attendees' | 'createdAt'>> // Dados atualizáveis
+): Promise<void> => {
+    const supabase = createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+        console.error("User not authenticated for updateEvent", authError);
+        throw new Error("User not authenticated");
+    }
+
+    // Mapear para nomes de coluna do DB (se necessário)
+    const dbUpdatePayload: Partial<Database['public']['Tables']['events']['Update']> = {
+        title: eventData.title,
+        description: eventData.description,
+        location: eventData.location,
+        event_date: eventData.date,
+        event_time: eventData.time,
+        is_periodic: eventData.isPeriodic,
+        frequency: eventData.frequency,
+        notify_before: eventData.notifyBefore,
+        // group_id e created_at não devem ser atualizados aqui
+    };
+
+    // RLS na tabela 'events' deve garantir que apenas admins do grupo podem atualizar
+    // e também que o grupo está ativo (após nossa atualização de RLS)
+    const { error } = await supabase
+        .from('events')
+        .update(dbUpdatePayload)
+        .eq('id', eventId);
+
+    if (error) {
+        console.error(`Error updating event ${eventId}:`, error);
+        // Check for RLS violation error (code 42501 in PostgreSQL)
+        if (error.code === '42501') {
+            throw new Error("Permission denied. Only group admins can update events in active groups.");
+        }
+        throw error;
+    }
+
+    console.log(`Event ${eventId} updated successfully.`);
+};
+// --- FIM DA FUNÇÃO RESTAURADA: updateEvent ---
+
+// Fim do arquivo (Garante que não há código truncado)

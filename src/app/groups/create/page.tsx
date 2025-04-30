@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/client';
 import { User as AuthUserType } from "@supabase/supabase-js";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createGroup } from "@/services/api";
+import { createGroup, uploadGroupImage, updateGroup } from "@/services/api";
 import { useRouter } from "next/navigation";
 import { SportType } from "@/lib/types";
 import { toast } from "sonner";
@@ -54,11 +54,32 @@ export default function CreateGroupPage() {
   const isPremium = false;
 
   const mutation = useMutation({
-    mutationFn: (payload: { name: string; description: string | null; sport: SportType; image_url: string | null }) => createGroup(payload),
-    onSuccess: (newGroupId) => {
+    mutationFn: (payload: { name: string; description: string | null; sport: SportType; /* image_url removido */ }) => 
+      createGroup(payload),
+    
+    onSuccess: async (newGroupId) => {
+      if (selectedFile) {
+        setIsSubmitting(true);
+        try {
+          console.log(`Group ${newGroupId} created, now uploading image...`);
+          const imageUrl = await uploadGroupImage(selectedFile, newGroupId);
+          console.log(`Image uploaded, updating group ${newGroupId} with URL: ${imageUrl}`);
+          
+          await updateGroup(newGroupId, { image: imageUrl }); 
+          console.log(`Group ${newGroupId} updated with image URL.`);
+          
+        } catch (uploadOrUpdateError) {
+           console.error("Error during image upload/update after group creation:", uploadOrUpdateError);
+           toast.error(`Grupo criado, mas falha ao salvar imagem: ${uploadOrUpdateError instanceof Error ? uploadOrUpdateError.message : 'Erro desconhecido'}`);
+           router.push(`/groups/${newGroupId}`); 
+           return;
+        }
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['userGroups', authUser?.id] });
       toast.success('Grupo criado com sucesso!');
       router.push(`/groups/${newGroupId}`);
+
     },
     onError: (error) => {
       console.error("Error creating group:", error);
@@ -76,49 +97,11 @@ export default function CreateGroupPage() {
     }
 
     setIsSubmitting(true);
-    let imageUrl: string | null = null;
-
-    if (selectedFile) {
-      const fileExtension = selectedFile.name.split('.').pop();
-      const uniqueId = `${authUser.id}/${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      const fileName = `${uniqueId}.${fileExtension}`;
-      const filePath = fileName;
-      const bucketName = 'group-images';
-
-      try {
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from(bucketName)
-          .upload(filePath, selectedFile, {
-            cacheControl: '3600',
-            upsert: false,
-          });
-
-        if (uploadError) throw uploadError;
-        if (!uploadData) throw new Error("Upload bem-sucedido, mas sem dados retornados.");
-
-        const { data: publicUrlData } = supabase.storage
-          .from(bucketName)
-          .getPublicUrl(filePath);
-
-        if (!publicUrlData || !publicUrlData.publicUrl) {
-          throw new Error('Imagem carregada, mas falha ao obter URL pública.');
-        }
-        imageUrl = publicUrlData.publicUrl;
-        console.log(`Imagem carregada para novo grupo: ${imageUrl}`);
-
-      } catch (error) {
-        console.error("Erro no upload da imagem:", error);
-        toast.error(`Falha no upload da imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-        setIsSubmitting(false);
-        return;
-      }
-    }
-
+    
     const groupPayload = {
       name: data.name,
       description: data.description || null,
       sport: data.sport as SportType,
-      image_url: imageUrl
     };
 
     mutation.mutate(groupPayload);

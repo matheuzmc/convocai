@@ -13,10 +13,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Trash2, AlertTriangle, Loader2, Camera, UploadCloud } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { createClient } from '@/lib/supabase/client';
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getGroupDetails, updateGroup, deleteGroup } from "@/services/api";
+import { getGroupDetails, updateGroup, deleteGroup, uploadGroupImage } from "@/services/api";
 import { toast } from "sonner";
 import { Group, SportType } from "@/lib/types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -32,7 +31,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { getStoragePathFromUrl } from '@/lib/utils';
 import { useImageUpload } from "@/hooks/useImageUpload";
 
 // Definir array de valores do SportType
@@ -44,7 +42,6 @@ const sportTypeValues: SportType[] = [
 export default function GroupSettingsPage() {
   const params = useParams();
   const groupId = params.id as string;
-  const supabase = createClient();
   const router = useRouter();
   const queryClient = useQueryClient();
   
@@ -144,7 +141,7 @@ export default function GroupSettingsPage() {
     setIsSaving(true);
 
     let imageUrl = group.image;
-    const updates: Partial<Group> = {};
+    const updates: Partial<Pick<Group, 'name' | 'description' | 'sport' | 'image'>> = {};
     let requiresApiUpdate = false;
     
     if (groupName !== (group?.name ?? "")) { updates.name = groupName; requiresApiUpdate = true; }
@@ -152,42 +149,13 @@ export default function GroupSettingsPage() {
     if (sport !== (group?.sport as SportType | undefined)) { updates.sport = sport; requiresApiUpdate = true; }
 
     if (selectedFile) {
-      const fileExtension = selectedFile.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`;
-      const filePath = `${groupId}/${fileName}`;
-      const bucketName = 'group-images';
-
       try {
-        const { data: uploadData, error: uploadError } = await supabase.storage
-            .from(bucketName)
-            .upload(filePath, selectedFile, {
-              cacheControl: '3600',
-              upsert: false,
-            });
-        
-        if (uploadError) throw uploadError;
-        if (!uploadData) throw new Error("Upload bem-sucedido, mas sem dados retornados.");
-
-        const { data: publicUrlData } = supabase.storage
-          .from(bucketName)
-          .getPublicUrl(filePath);
-
-        if (!publicUrlData || !publicUrlData.publicUrl) {
-           throw new Error('Imagem carregada, mas falha ao obter URL pública.');
-        }
-        imageUrl = publicUrlData.publicUrl;
+        imageUrl = await uploadGroupImage(selectedFile, groupId);
         updates.image = imageUrl;
         requiresApiUpdate = true;
-
-        const oldImagePath = getStoragePathFromUrl(group.image, bucketName);
-        if (oldImagePath && imageUrl !== group.image) {
-          supabase.storage.from(bucketName).remove([oldImagePath]).then(({ error: deleteError }) => {
-            if (deleteError) console.warn("Falha ao excluir imagem antiga do grupo:", deleteError);
-          });
-        }
-
+        console.log(`Nova imagem carregada para grupo ${groupId}: ${imageUrl}`);
       } catch (error) {
-        toast.error(`Erro durante o upload da imagem: ${error instanceof Error ? error.message : String(error)}`);
+        toast.error(`Erro durante o upload da nova imagem: ${error instanceof Error ? error.message : String(error)}`);
         setIsSaving(false);
         return;
       } 
@@ -198,9 +166,6 @@ export default function GroupSettingsPage() {
     } else {
         toast.info("Nenhuma alteração detectada para salvar.");
         setIsSaving(false);
-        if (selectedFile && !requiresApiUpdate) { 
-          clearImageSelection();
-        }
     }
   };
   
