@@ -11,6 +11,12 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 export const metadata: Metadata = {
   title: "Sports Group App",
   description: "Aplicativo para administração de grupos esportivos",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Sports Group App",
+  },
 };
 
 export default function RootLayout({
@@ -20,6 +26,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
+      <meta name="theme-color" content="#000000" />
+      <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       <body
         className={cn(
           "min-h-screen bg-background font-sans antialiased",
