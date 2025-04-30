@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client'; // Use the client component helper
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,14 +12,53 @@ import { toast } from "sonner";
 import { Loader2, AlertCircle } from "lucide-react";
 import { MobileLayout } from "@/components/layout/MobileLayout"; // Assuming MobileLayout exists
 
-export default function LoginPage() {
+// Define a loading component for Suspense fallback
+function LoginFormSkeleton() {
+  return (
+    <div className="w-full max-w-sm space-y-8 px-4 py-20 mx-auto">
+      <div className="text-center space-y-2">
+        <div className="h-8 bg-gray-200 rounded w-1/3 mx-auto animate-pulse"></div>
+        <div className="h-4 bg-gray-200 rounded w-2/3 mx-auto animate-pulse"></div>
+      </div>
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="h-4 bg-gray-200 rounded w-1/4 animate-pulse"></div>
+          <div className="h-10 bg-gray-200 rounded w-full animate-pulse"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/4 animate-pulse"></div>
+          <div className="h-10 bg-gray-200 rounded w-full animate-pulse"></div>
+          <div className="h-10 bg-gray-300 rounded w-full animate-pulse mt-4"></div>
+        </CardContent>
+        <CardFooter className="flex justify-center border-t p-4">
+          <div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}
+
+// Original component logic moved into a new component
+function LoginContent() {
   const router = useRouter();
-  const supabase = createClient(); // Initialize Supabase client
+  const supabase = createClient();
+  const searchParams = useSearchParams(); // This hook requires Suspense
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nextPath, setNextPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    const next = searchParams.get('next');
+    if (next) {
+      if (next.startsWith('/')) {
+        setNextPath(next);
+        console.log("[Login Page] Found 'next' parameter:", next);
+      } else {
+        console.warn("[Login Page] Invalid 'next' parameter received:", next);
+      }
+    }
+  }, [searchParams]);
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -37,19 +76,15 @@ export default function LoginPage() {
       }
 
       toast.success("Login realizado com sucesso!");
-      // The middleware should handle redirection for logged-in users
-      // navigating away or refreshing. We might need a manual push here
-      // if the middleware doesn't catch the immediate state change within the same navigation.
-      router.push('/dashboard'); // Manual push to dashboard after successful sign-in
-      // Refresh might be needed if middleware doesn't update session immediately
-      // router.refresh();
+      const redirectPath = nextPath || '/dashboard';
+      console.log(`[Login Page] Redirecting to: ${redirectPath}`);
+      router.push(redirectPath);
 
     } catch (err) {
       console.error("[Login Page] Login error:", err);
       let errorMessage = "Ocorreu um erro durante o login.";
-      // Type guard for Supabase AuthError or generic Error
       if (typeof err === 'object' && err !== null && 'message' in err) {
-         errorMessage = (err as Error).message;
+        errorMessage = (err as Error).message;
       }
       setError(errorMessage);
       toast.error(errorMessage);
@@ -58,11 +93,7 @@ export default function LoginPage() {
     }
   };
 
-  // Note: The middleware should redirect logged-in users away from this page.
-  // So, we don't necessarily need the complex loading/user checks from the old AuthContext approach here.
-
   return (
-    <MobileLayout>
       <div className="w-full max-w-sm space-y-8 px-4 py-20 mx-auto">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold">Entrar</h1>
@@ -126,7 +157,7 @@ export default function LoginPage() {
             <p className="text-sm text-muted-foreground">
               Não tem uma conta?{" "}
               <Link
-                href="/register"
+                href={nextPath ? `/register?next=${encodeURIComponent(nextPath)}` : "/register"}
                 className="text-primary hover:underline"
               >
                 Cadastre-se
@@ -135,6 +166,16 @@ export default function LoginPage() {
           </CardFooter>
         </Card>
       </div>
+  );
+}
+
+// Main page component now wraps LoginContent with Suspense
+export default function LoginPage() {
+  return (
+    <MobileLayout>
+      <Suspense fallback={<LoginFormSkeleton />}>
+        <LoginContent />
+      </Suspense>
     </MobileLayout>
   );
 } 
