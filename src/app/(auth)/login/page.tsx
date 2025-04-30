@@ -50,7 +50,7 @@ export default function LoginPage() {
       // Type guard for Supabase AuthError or generic Error
       if (typeof err === 'object' && err !== null && 'message' in err) {
          errorMessage = (err as Error).message;
-      } 
+      }
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {

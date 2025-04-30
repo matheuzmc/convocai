@@ -1,7 +1,7 @@
 {
-  "name": "ConvoCAI",
-  "short_name": "ConvoCAI",
-  "description": "Sua aplicação ConvoCAI como PWA.",
+  "name": "Convocai",
+  "short_name": "Convocai",
+  "description": "Convocai é uma aplicação para gerenciar grupos de esportes.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
