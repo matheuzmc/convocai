@@ -95,9 +95,11 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - manifest.json (PWA manifest file)
      * - images (public images folder)
+     * - icons (PWA icons folder)
      * - auth/callback (Supabase auth callback)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|images|auth/callback).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest\.json|images|icons|auth/callback).*)',
   ],
 } 
