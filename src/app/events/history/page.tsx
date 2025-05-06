@@ -71,7 +71,7 @@ export default function EventHistoryPage() {
   if (error) {
     return (
       <MobileLayout
-        header={<TopNav title="Histórico de Eventos" backHref="/dashboard" />}
+        header={<TopNav title="Histórico de Eventos" backHref="/events" />}
         footer={<BottomNav />}
       >
         <div className="p-4 text-center text-destructive">
@@ -85,7 +85,7 @@ export default function EventHistoryPage() {
 
   return (
     <MobileLayout
-      header={<TopNav title="Histórico de Eventos" backHref="/dashboard" />}
+      header={<TopNav title="Histórico de Eventos" backHref="/events" />}
       footer={<BottomNav />}
     >
       <div className="space-y-6">

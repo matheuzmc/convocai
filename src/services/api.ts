@@ -233,23 +233,31 @@ export const getUpcomingEvents = async (): Promise<Event[]> => {
     .eq('user_id', user.id);
 
   if (memberError) throw memberError;
-  if (!memberEntries) return [];
+  if (!memberEntries || memberEntries.length === 0) return [];
 
   const groupIds = (memberEntries as GroupMemberEntry[]).map(entry => entry.group_id);
   if (groupIds.length === 0) return [];
 
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const todayDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`; // HH:MM:SS
 
   const { data: eventsData, error: eventsError } = await supabase
     .from('events')
-    .select('*, event_attendees(user_id, status)') // Select all from events + attendees
+    .select('*, event_attendees(user_id, status)')
     .in('group_id', groupIds)
-    .gte('event_date', today)
+    // Condição OR:
+    // 1. Evento é em data futura
+    // 2. Evento é hoje E hora do evento é maior ou igual à hora atual
+    .or(`event_date.gt.${todayDate},and(event_date.eq.${todayDate},event_time.gte.${currentTime})`)
     .order('event_date', { ascending: true })
     .order('event_time', { ascending: true })
-    .returns<EventRowWithAttendees[]>(); // Specify return type
+    .returns<EventRowWithAttendees[]>();
 
-  if (eventsError) throw eventsError;
+  if (eventsError) {
+    console.error("Error fetching upcoming events:", eventsError);
+    throw eventsError;
+  }
 
   const events: Event[] = (eventsData ?? []).map((event) => ({
     id: event.id,
@@ -260,11 +268,11 @@ export const getUpcomingEvents = async (): Promise<Event[]> => {
     date: event.event_date,
     time: event.event_time,
     isPeriodic: event.is_periodic,
-    frequency: event.frequency as Event['frequency'], // Cast if needed
+    frequency: event.frequency as Event['frequency'],
     notifyBefore: event.notify_before,
     attendees: (event.event_attendees ?? []).map(att => ({
       userId: att.user_id,
-      status: att.status as Event['attendees'][number]['status'], // Cast if needed
+      status: att.status as Event['attendees'][number]['status'],
     })),
     createdAt: event.created_at,
   }));
@@ -477,7 +485,9 @@ export const getPastEvents = async (): Promise<Event[]> => {
   }
 
   const groupIds = memberEntries.map(entry => entry.group_id);
-  const today = new Date().toISOString().split('T')[0]; // Get YYYY-MM-DD format
+  const now = new Date();
+  const todayDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`; // HH:MM:SS
 
   // 3. Fetch past events for those groups
   const { data: eventsData, error: eventsError } = await supabase
@@ -497,8 +507,11 @@ export const getPastEvents = async (): Promise<Event[]> => {
       event_attendees ( user_id, status )
     `)
     .in('group_id', groupIds)
-    .lt('event_date', today) // Less than today
-    .order('event_date', { ascending: false }) // Show most recent past first
+    // Condição OR:
+    // 1. Evento é em data passada
+    // 2. Evento é hoje E hora do evento é menor que a hora atual
+    .or(`event_date.lt.${todayDate},and(event_date.eq.${todayDate},event_time.lt.${currentTime})`)
+    .order('event_date', { ascending: false }) 
     .order('event_time', { ascending: false });
 
   if (eventsError) {

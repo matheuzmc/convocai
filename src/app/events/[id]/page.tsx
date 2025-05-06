@@ -93,7 +93,14 @@ export default function EventDetailsPage() {
   const pendingAttendees = attendees.filter((a: AttendeeWithProfile) => a.status === 'pending');
   const currentUserAttendee = attendees.find((att: AttendeeWithProfile) => att.userId === currentUser?.id);
   const currentStatus = currentUserAttendee?.status ?? 'pending';
-  const isPast = event ? new Date(event.date + 'T00:00:00') < new Date(new Date().toDateString()) : false;
+  
+  // const isPast = event ? new Date(`${event.date}T${event.time || '00:00:00'}`) < new Date() : false; // Linha anterior com possível problema de offset
+  const timeString = event?.time || '00:00:00';
+  const timeWithoutOffset = timeString.split(/[+-]/)[0];
+  const isPast = event ? new Date(`${event.date}T${timeWithoutOffset}`) < new Date() : false;
+
+  // DEBUGGING LOGS FOR EventDetailsPage - REMOVER/CONFIRMAR COMENTADO
+  // console.log(`[EventDetailsPage DEBUG] Event ID: ${event?.id}, isPast: ${isPast}`, { eventDate: event?.date, eventTime: event?.time, timeWithoutOffset, constructedDateTimeString: `${event?.date}T${timeWithoutOffset}` });
 
   const respondMutation = useMutation({
     mutationFn: async (status: 'confirmed' | 'declined') => {
@@ -190,7 +197,7 @@ export default function EventDetailsPage() {
   if (isLoading) {
     return (
       <MobileLayout
-        header={<TopNav title="Carregando Evento..." backHref="/dashboard" />}
+        header={<TopNav title="Carregando Evento..." backHref="/events" />}
         footer={<BottomNav />}
       >
         <div className="space-y-4 p-4">
@@ -227,7 +234,7 @@ export default function EventDetailsPage() {
   if (eventError || !eventDetails || !event || !group) {
      return (
       <MobileLayout
-        header={<TopNav title="Erro" backHref="/dashboard" />}
+        header={<TopNav title="Erro" backHref="/events" />}
         footer={<BottomNav />}
       >
         <div className="p-4 text-center text-destructive">
@@ -466,7 +473,7 @@ export default function EventDetailsPage() {
                               <div key={attendee.userId} className="flex items-center justify-between gap-3 p-3 border rounded-lg bg-card cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleMemberClick(attendee.userId)}>
                                 <div className="flex items-center gap-3 flex-grow min-w-0">
                                   <Avatar className="h-10 w-10">
-                                    <AvatarImage src={attendee.profile?.avatar_url ?? ''} alt={attendee.profile?.name ?? 'Avatar'} />
+                                    <AvatarImage src={attendee.profile?.avatar_url} alt={attendee.profile?.name ?? 'Avatar'} />
                                     <AvatarFallback>{attendee.profile?.name?.charAt(0)?.toUpperCase() ?? '?'}</AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1 min-w-0">
@@ -503,7 +510,7 @@ export default function EventDetailsPage() {
                               <div key={attendee.userId} className="flex items-center justify-between gap-3 p-3 border rounded-lg bg-card cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleMemberClick(attendee.userId)}>
                                 <div className="flex items-center gap-3 flex-grow min-w-0">
                                   <Avatar className="h-10 w-10">
-                                    <AvatarImage src={attendee.profile?.avatar_url ?? ''} alt={attendee.profile?.name ?? 'Avatar'} />
+                                    <AvatarImage src={attendee.profile?.avatar_url} alt={attendee.profile?.name ?? 'Avatar'} />
                                     <AvatarFallback>{attendee.profile?.name?.charAt(0)?.toUpperCase() ?? '?'}</AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1 min-w-0">
@@ -540,7 +547,7 @@ export default function EventDetailsPage() {
                               <div key={attendee.userId} className="flex items-center justify-between gap-3 p-3 border rounded-lg bg-card cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleMemberClick(attendee.userId)}>
                                 <div className="flex items-center gap-3 flex-grow min-w-0">
                                   <Avatar className="h-10 w-10">
-                                    <AvatarImage src={attendee.profile?.avatar_url ?? ''} alt={attendee.profile?.name ?? 'Avatar'} />
+                                    <AvatarImage src={attendee.profile?.avatar_url} alt={attendee.profile?.name ?? 'Avatar'} />
                                     <AvatarFallback>{attendee.profile?.name?.charAt(0)?.toUpperCase() ?? '?'}</AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1 min-w-0">

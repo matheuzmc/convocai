@@ -69,7 +69,7 @@ export default function NotificationsPage() {
     if (loadingAuth || isLoadingNotifications) {
         return (
             <MobileLayout
-                header={<TopNav title="Notificações" backHref="/dashboard" />}
+                header={<TopNav title="Notificações" backHref="/events" />}
                 footer={<BottomNav />}
             >
                 <div className="p-4 space-y-4">
@@ -84,7 +84,7 @@ export default function NotificationsPage() {
 
     return (
         <MobileLayout
-            header={<TopNav title="Notificações" backHref="/dashboard" />}
+            header={<TopNav title="Notificações" backHref="/events" />}
             footer={<BottomNav />}
         >
             <div className="p-4">
