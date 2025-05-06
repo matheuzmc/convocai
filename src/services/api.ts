@@ -23,7 +23,7 @@ type EventAttendeeRow = Database['public']['Tables']['event_attendees']['Row'];
 export interface UserProfileData {
   id: string;
   name: string | null;
-  last_name: string | null;
+  lastName: string | null;
   nickname: string | null;
   avatar_url: string | null;
   is_premium: boolean;
@@ -49,7 +49,7 @@ type EventRowWithAttendees = Database['public']['Tables']['events']['Row'] & {
 };
 
 // Example for getGroupDetails
-type ProfileRowForMember = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'name' | 'last_name' | 'nickname' | 'avatar_url'>;
+type ProfileRowForMember = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'name' | 'lastName' | 'nickname' | 'avatar_url'>;
 type MemberWithProfile = Database['public']['Tables']['group_members']['Row'] & {
     profiles: ProfileRowForMember | null;
 };
@@ -117,6 +117,7 @@ export const getCurrentUserProfile = async (): Promise<User | null> => {
       .select(`
         id,
         name,
+        last_name,
         avatar_url,
         is_premium,
         sport_preferences
@@ -146,6 +147,7 @@ export const getCurrentUserProfile = async (): Promise<User | null> => {
     const userProfile: User = {
       id: profile.id,
       name: profile.name,
+      lastName: profile.last_name,
       email: user.email || '', 
       avatar: profile.avatar_url || '', 
       isPremium: profile.is_premium,
@@ -385,7 +387,7 @@ export const getGroupDetails = async (groupId: string): Promise<{
     id: member.profiles?.id ?? member.user_id,
     user_id: member.user_id,
     name: member.profiles?.name ?? 'Nome não encontrado',
-    last_name: member.profiles?.last_name,
+    lastName: member.profiles?.last_name, // Mapeia last_name do DB para lastName
     nickname: member.profiles?.nickname,
     avatar: member.profiles?.avatar_url || null,
     isAdmin: member.is_admin ?? false,
@@ -608,7 +610,7 @@ export const createGroup = async (groupData: {
  */
 export const updateUserProfile = async (profileData: Partial<{ 
   name: string | null;
-  last_name: string | null;
+  lastName: string | null;
   nickname: string | null;
   sportPreferences: User['sportPreferences'] | null;
   avatar_url: string | null;
@@ -627,8 +629,8 @@ export const updateUserProfile = async (profileData: Partial<{
   if (Object.hasOwn(profileData, 'name')) {
     updateData.name = profileData.name ?? undefined; // Garante undefined se for null
   }
-  if (Object.hasOwn(profileData, 'last_name')) {
-    updateData.last_name = profileData.last_name ?? undefined; // Garante undefined se for null
+  if (Object.hasOwn(profileData, 'lastName')) {
+    updateData.last_name = profileData.lastName ?? undefined; // Garante undefined se for null
   }
   if (Object.hasOwn(profileData, 'nickname')) {
     updateData.nickname = profileData.nickname; // Permite null
@@ -1098,7 +1100,7 @@ export const getUserProfile = async (userId: string): Promise<UserProfileData | 
     const userProfileData: UserProfileData = {
       id: profile.id,
       name: profile.name,
-      last_name: profile.last_name,
+      lastName: profile.last_name, // Mapeia last_name do DB para lastName
       nickname: profile.nickname,
       avatar_url: profile.avatar_url,
       is_premium: profile.is_premium,

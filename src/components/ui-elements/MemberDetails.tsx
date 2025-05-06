@@ -26,6 +26,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { toast } from "sonner";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { getUserDisplayData } from "@/lib/utils";
 
 interface MemberDetailsProps {
   open: boolean;
@@ -152,14 +153,17 @@ export function MemberDetails({
     );
   }
 
-  const fullName = `${userProfile?.name || ''} ${userProfile?.last_name || ''}`.trim();
+  const { displayName: calculatedDisplayName, fallbackInitials } = getUserDisplayData({
+    name: userProfile?.name,
+    lastName: userProfile?.lastName,
+  });
+  
   const nickname = userProfile?.nickname;
   
-  const primaryDisplayName = nickname || fullName || (isLoading ? 'Carregando...' : 'Membro');
-  const secondaryDisplayName = nickname && fullName ? fullName : null;
+  const primaryDisplayName = nickname || calculatedDisplayName;
+  const secondaryDisplayName = nickname && calculatedDisplayName !== 'Usuário' ? calculatedDisplayName : null;
 
   const avatarUrl = userProfile?.avatar_url;
-  const fallbackInitials = primaryDisplayName ? primaryDisplayName.split(" ").map((n) => n[0]).join("").toUpperCase() : 'M';
   const userIsAdminInGroup = isDisplayedUserAdmin;
   const phoneNumber = userProfile?.phone_number;
   const attendanceRate = attendanceStats?.attendanceRate ?? 0;

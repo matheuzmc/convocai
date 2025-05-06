@@ -8,6 +8,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { Skeleton } from "@/components/ui/skeleton"
+import { getUserDisplayData } from "@/lib/utils"
 
 interface TopNavProps {
   title: string
@@ -89,10 +90,10 @@ export function TopNav({
             >
               <Avatar className="h-8 w-8 border-2 border-primary/20">
                 {currentUser.avatar ? (
-                  <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                  <AvatarImage src={currentUser.avatar} alt={getUserDisplayData(currentUser).displayName} />
                 ) : (
                   <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                    {currentUser.name?.split(" ").map((n) => n[0]).join("") ?? 'U'}
+                    {getUserDisplayData(currentUser).fallbackInitials}
                   </AvatarFallback>
                 )}
               </Avatar>
