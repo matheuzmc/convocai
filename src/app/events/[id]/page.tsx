@@ -476,12 +476,12 @@ export default function EventDetailsPage() {
                                            {attendee.profile.nickname}
                                          </span>
                                          <span className="text-xs text-muted-foreground block truncate">
-                                           {`${attendee.profile?.name || ''} ${attendee.profile?.last_name || ''}`.trim() || 'Nome Completo Indisponível'}
+                                           {`${attendee.profile?.name || ''} ${attendee.profile?.lastName || ''}`.trim() || 'Nome Completo Indisponível'}
                                          </span>
                                        </>
                                     ) : (
                                        <span className="text-sm font-medium block truncate">
-                                         {`${attendee.profile?.name || ''} ${attendee.profile?.last_name || ''}`.trim() || 'Nome Indisponível'}
+                                         {`${attendee.profile?.name || ''} ${attendee.profile?.lastName || ''}`.trim() || 'Nome Indisponível'}
                                        </span>
                                     )}
                                   </div>
@@ -513,12 +513,12 @@ export default function EventDetailsPage() {
                                            {attendee.profile.nickname}
                                          </span>
                                          <span className="text-xs text-muted-foreground block truncate">
-                                           {`${attendee.profile?.name || ''} ${attendee.profile?.last_name || ''}`.trim() || 'Nome Completo Indisponível'}
+                                           {`${attendee.profile?.name || ''} ${attendee.profile?.lastName || ''}`.trim() || 'Nome Completo Indisponível'}
                                          </span>
                                        </>
                                     ) : (
                                        <span className="text-sm font-medium block truncate">
-                                         {`${attendee.profile?.name || ''} ${attendee.profile?.last_name || ''}`.trim() || 'Nome Indisponível'}
+                                         {`${attendee.profile?.name || ''} ${attendee.profile?.lastName || ''}`.trim() || 'Nome Indisponível'}
                                        </span>
                                     )}
                                   </div>
@@ -550,12 +550,12 @@ export default function EventDetailsPage() {
                                            {attendee.profile.nickname}
                                          </span>
                                          <span className="text-xs text-muted-foreground block truncate">
-                                           {`${attendee.profile?.name || ''} ${attendee.profile?.last_name || ''}`.trim() || 'Nome Completo Indisponível'}
+                                           {`${attendee.profile?.name || ''} ${attendee.profile?.lastName || ''}`.trim() || 'Nome Completo Indisponível'}
                                          </span>
                                        </>
                                     ) : (
                                        <span className="text-sm font-medium block truncate">
-                                         {`${attendee.profile?.name || ''} ${attendee.profile?.last_name || ''}`.trim() || 'Nome Indisponível'}
+                                         {`${attendee.profile?.name || ''} ${attendee.profile?.lastName || ''}`.trim() || 'Nome Indisponível'}
                                        </span>
                                     )}
                                   </div>

@@ -49,7 +49,7 @@ type EventRowWithAttendees = Database['public']['Tables']['events']['Row'] & {
 };
 
 // Example for getGroupDetails
-type ProfileRowForMember = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'name' | 'lastName' | 'nickname' | 'avatar_url'>;
+type ProfileRowForMember = Pick<Database['public']['Tables']['profiles']['Row'], 'id' | 'name' | 'last_name' | 'nickname' | 'avatar_url'>;
 type MemberWithProfile = Database['public']['Tables']['group_members']['Row'] & {
     profiles: ProfileRowForMember | null;
 };

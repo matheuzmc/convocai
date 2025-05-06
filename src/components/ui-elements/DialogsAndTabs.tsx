@@ -359,7 +359,7 @@ export function GroupTabs({
                     <MemberCard
                       key={member.id}
                       id={member.id}
-                      name={`${member.name || ''} ${member.last_name || ''}`.trim()}
+                      name={`${member.name || ''} ${member.lastName || ''}`.trim()}
                       nickname={member.nickname}
                       avatar={member.avatar || ''}
                       groupId={groupId}
@@ -376,7 +376,7 @@ export function GroupTabs({
                     <MemberCard
                       key={member.id}
                       id={member.id}
-                      name={`${member.name || ''} ${member.last_name || ''}`.trim()}
+                      name={`${member.name || ''} ${member.lastName || ''}`.trim()}
                       nickname={member.nickname}
                       avatar={member.avatar || ''}
                       groupId={groupId}
