@@ -135,8 +135,8 @@ function AcceptInviteContent() {
                  <CardDescription>O link de convite utilizado é inválido, expirou ou já foi utilizado.</CardDescription>
               </CardHeader>
               <CardFooter className="flex justify-center">
-                 <Button variant="outline" asChild>
-                    <Link href="/dashboard">Voltar ao início</Link>
+                 <Button variant="outline" className="w-full" asChild>
+                    <Link href="/events">Voltar ao início</Link>
                  </Button>
               </CardFooter>
            </Card>
@@ -164,7 +164,7 @@ function AcceptInviteContent() {
                  </div>
             )}
           </CardContent>
-          <CardFooter className="flex flex-col gap-4">
+          <CardFooter className="flex flex-col sm:flex-row gap-2 pt-6">
             <Button 
                 className="w-full" 
                 onClick={handleAccept}
@@ -174,9 +174,9 @@ function AcceptInviteContent() {
                {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                {mutation.isPending ? 'Entrando...' : 'Entrar no Grupo'}
             </Button>
-            <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
-                 <Link href="/dashboard">Agora não</Link>
-             </Button>
+            <Button variant="outline" className="w-full" asChild>
+              <Link href="/events">Agora não</Link>
+            </Button>
           </CardFooter>
         </Card>
     );

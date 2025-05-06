@@ -19,7 +19,7 @@ export function Logo({ size = 'md', withText = true, className = '' }: LogoProps
   const logoSize = sizes[size];
   
   return (
-    <Link href="/dashboard" className={`flex items-center gap-2 ${className}`}>
+    <Link href="/events" className={`flex items-center gap-2 ${className}`}>
       <motion.div
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}

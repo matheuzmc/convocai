@@ -76,7 +76,7 @@ function LoginContent() {
       }
 
       toast.success("Login realizado com sucesso!");
-      const redirectPath = nextPath || '/dashboard';
+      const redirectPath = nextPath || '/events';
       console.log(`[Login Page] Redirecting to: ${redirectPath}`);
       router.push(redirectPath);
 

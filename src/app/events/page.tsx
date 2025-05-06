@@ -17,6 +17,9 @@ import { Event } from '@/lib/types'; // Correct path for Event type
 import { useQuery } from "@tanstack/react-query"; // Import useQuery
 import { getUpcomingEvents, getPastEvents } from "@/services/api"; // Import API functions
 import { AlertTriangle } from 'lucide-react'; // Import icon for error
+import { Calendar, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 
 // Placeholder data definition moved inside the component or will be replaced by fetched data
@@ -95,7 +98,7 @@ const EventsPage: React.FC = () => {
   const pastEvents = pastEventsData ?? [];
 
   // Function to render the event list content, now using correct prop passing
-  const renderEventContent = (events: Event[], isLoading: boolean, error: Error | null) => {
+  const renderEventContent = (events: Event[], isLoading: boolean, error: Error | null, eventType: 'upcoming' | 'past') => {
      // Show skeletons within the tab if this specific list is loading
      if (isLoading) { 
       return (
@@ -117,7 +120,22 @@ const EventsPage: React.FC = () => {
     }
     // Show empty message if no events and no error
     if (events.length === 0) {
-      return <p className="text-center text-muted-foreground mt-4">Nenhum evento encontrado.</p>;
+      if (eventType === 'upcoming') {
+        return (
+          <div className="text-center text-muted-foreground mt-8 py-8">
+            <Calendar className="mx-auto h-12 w-12 mb-4 text-gray-400" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum evento futuro</h3>
+            <p className="text-sm mb-6">Parece que você não tem nenhum evento agendado.</p>
+            <Button asChild>
+              <Link href="/groups">
+                <Users className="mr-2 h-4 w-4" /> Explorar Grupos
+              </Link>
+            </Button>
+          </div>
+        );
+      } else { // For past events
+        return <p className="text-center text-muted-foreground mt-4">Nenhum evento passado encontrado.</p>;
+      }
     }
     // Render event cards
     return (
@@ -145,11 +163,11 @@ const EventsPage: React.FC = () => {
           </TabsList>
           <TabsContent value="upcoming">
              {/* Pass upcoming events data and loading/error states */}
-             {renderEventContent(upcomingEvents, isLoadingUpcoming, upcomingError)}
+             {renderEventContent(upcomingEvents, isLoadingUpcoming, upcomingError, 'upcoming')}
           </TabsContent>
           <TabsContent value="past">
              {/* Pass past events data and loading/error states */}
-             {renderEventContent(pastEvents, isLoadingPast, pastError)} 
+             {renderEventContent(pastEvents, isLoadingPast, pastError, 'past')} 
           </TabsContent>
         </Tabs>
       </div>

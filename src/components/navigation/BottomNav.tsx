@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, Users, Calendar, Bell } from "lucide-react";
+import { Users, Calendar, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BottomNavProps {
@@ -24,7 +24,7 @@ export function BottomNav({ className }: BottomNavProps) {
         className
       )}
     >
-      <NavItem href="/dashboard" icon={<Home className="h-6 w-6" />} label="Início" isActive={pathname === "/dashboard"} />
+      {/* <NavItem href="/dashboard" icon={<Home className="h-6 w-6" />} label="Início" isActive={pathname === "/dashboard"} /> */}
       <NavItem href="/groups" icon={<Users className="h-6 w-6" />} label="Grupos" isActive={pathname.startsWith("/groups")} />
       <NavItem href="/events" icon={<Calendar className="h-6 w-6" />} label="Eventos" isActive={pathname.startsWith("/events")} />
       <NavItem href="/notifications" icon={<Bell className="h-6 w-6" />} label="Notificações" isActive={pathname.startsWith("/notifications")} />

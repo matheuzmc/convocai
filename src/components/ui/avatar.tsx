@@ -31,10 +31,13 @@ export function Avatar({ className, children, ...props }: AvatarProps) {
 
 interface AvatarImageProps extends Omit<React.ComponentPropsWithoutRef<typeof Image>, "src"> {
   className?: string;
-  src: string;
+  src?: string | null;
 }
 
 export function AvatarImage({ className, alt, src, ...props }: AvatarImageProps) {
+  if (!src) {
+    return null;
+  }
   return (
     <Image
       className={cn("aspect-square h-full w-full object-cover", className)}

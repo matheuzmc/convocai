@@ -1,7 +1,7 @@
 import React from "react";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardDescription } from "@/components/ui/card";
 import Link from "next/link";
 import { Check } from "lucide-react";
 
@@ -21,9 +21,9 @@ export default function SelectPlanPage() {
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-blue-600"></div>
             <CardHeader className="pb-2">
               <h3 className="text-xl font-bold">Plano Gratuito</h3>
-              <p className="text-sm text-muted-foreground">
-                Perfeito para começar
-              </p>
+              <CardDescription className="text-sm text-muted-foreground">
+                Ideal para atletas e grupos casuais.
+              </CardDescription>
             </CardHeader>
             <CardContent className="pb-2">
               <div className="mb-4">
@@ -45,9 +45,9 @@ export default function SelectPlanPage() {
                 </li>
               </ul>
             </CardContent>
-            <CardFooter className="pt-2">
-              <Button variant="outline" className="w-full" asChild>
-                <Link href="/dashboard">Selecionar Gratuito</Link>
+            <CardFooter className="mt-auto">
+              <Button className="w-full" variant="outline" asChild>
+                <Link href="/events">Selecionar Gratuito</Link>
               </Button>
             </CardFooter>
           </Card>
@@ -61,9 +61,9 @@ export default function SelectPlanPage() {
             </div>
             <CardHeader className="pb-2">
               <h3 className="text-xl font-bold">Plano Premium</h3>
-              <p className="text-sm text-muted-foreground">
+              <CardDescription className="text-sm text-muted-foreground">
                 Para entusiastas de esportes
-              </p>
+              </CardDescription>
             </CardHeader>
             <CardContent className="pb-2">
               <div className="mb-4">
@@ -93,9 +93,9 @@ export default function SelectPlanPage() {
                 </li>
               </ul>
             </CardContent>
-            <CardFooter className="pt-2">
+            <CardFooter className="mt-auto">
               <Button className="w-full" asChild>
-                <Link href="/dashboard">Selecionar Premium</Link>
+                <Link href="/events">Selecionar Premium</Link>
               </Button>
             </CardFooter>
           </Card>

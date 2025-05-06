@@ -68,7 +68,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirect logged-in users from auth routes to dashboard
   if (user && isAuthRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL('/events', request.url))
   }
 
   // Redirect non-logged-in users from protected routes to login

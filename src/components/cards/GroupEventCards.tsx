@@ -99,7 +99,14 @@ export function EventCard({ event, className }: EventCardProps) {
   , [event.attendees, authUser?.id]);
 
   const currentStatus = currentUserAttendee?.status ?? 'pending';
-  const isPast = new Date(event.date) < new Date();
+  
+  const timeString = event.time || '00:00:00';
+  const timeWithoutOffset = timeString.split(/[+-]/)[0];
+  const eventDateTimeString = `${event.date}T${timeWithoutOffset}`;
+
+  const eventDateObj = new Date(eventDateTimeString);
+  const now = new Date();
+  const isPast = eventDateObj < now;
 
   const mutation = useMutation({
     mutationFn: async (status: 'confirmed' | 'declined') => {

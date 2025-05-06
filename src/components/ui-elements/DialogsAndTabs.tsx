@@ -245,42 +245,56 @@ export function GroupTabs({
   // const group = getGroupById(groupId);
   const inviteLink = groupId ? `${window.location.origin}/groups/${groupId}/join` : "#"; // Placeholder invite link
 
-  // Filtrar eventos por data (comparando apenas a data, ignorando hora/fuso)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Zera a hora para comparar apenas a data
+  // Filtrar eventos por data E HORA
+  const now = new Date();
 
   const upcomingEvents = events
     .filter(event => {
-      // Assume event.date está no formato YYYY-MM-DD
-      // Cria a data do evento no início do dia para evitar problemas de fuso/hora
-      const eventDateParts = event.date.split('-').map(Number);
-      // new Date(year, monthIndex, day) - monthIndex é 0-based
-      const eventDate = new Date(eventDateParts[0], eventDateParts[1] - 1, eventDateParts[2]);
-      eventDate.setHours(0, 0, 0, 0); 
-      return eventDate >= today;
+      const timeString = event.time || '00:00:00';
+      const timeWithoutOffset = timeString.split(/[+-]/)[0];
+      const eventDateTimeString = `${event.date}T${timeWithoutOffset}`;
+      const eventDateObj = new Date(eventDateTimeString);
+      const shouldBeUpcoming = eventDateObj >= now;
+      
+      return shouldBeUpcoming;
     })
     .sort((a, b) => {
-      // Ordenar primeiro por data, depois por hora
-      const dateA = new Date(`${a.date}T${a.time}`);
-      const dateB = new Date(`${b.date}T${b.time}`);
-      if (a.date !== b.date) {
-         return dateA.getTime() - dateB.getTime(); // Compara a data completa se diferentes
-      }
-      // Se a data for a mesma, ordena pela hora (opcional, mas pode ser útil)
-      return dateA.getTime() - dateB.getTime(); // A comparação original já fazia isso
+      const timeA = (a.time || '00:00:00').split(/[+-]/)[0];
+      const timeB = (b.time || '00:00:00').split(/[+-]/)[0];
+      const dateA = new Date(`${a.date}T${timeA}`);
+      const dateB = new Date(`${b.date}T${timeB}`);
+      // Se alguma data for inválida, tratar como igual para evitar erros de sort
+      if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return 0;
+      return dateA.getTime() - dateB.getTime(); 
     });
     
   const pastEvents = events
     .filter(event => {
-      const eventDateParts = event.date.split('-').map(Number);
-      const eventDate = new Date(eventDateParts[0], eventDateParts[1] - 1, eventDateParts[2]);
-      eventDate.setHours(0, 0, 0, 0);
-      return eventDate < today;
+      const timeString = event.time || '00:00:00';
+      const timeWithoutOffset = timeString.split(/[+-]/)[0];
+      const eventDateTimeString = `${event.date}T${timeWithoutOffset}`;
+      const eventDateObj = new Date(eventDateTimeString);
+      const shouldBePast = eventDateObj < now;
+      
+      return shouldBePast;
     })
     .sort((a, b) => {
-      const dateA = new Date(`${a.date}T${a.time}`);
-      const dateB = new Date(`${b.date}T${b.time}`);
-      return dateB.getTime() - dateA.getTime(); // Mais recentes primeiro (ordenação ok)
+      const timeA = (a.time || '00:00:00').split(/[+-]/)[0];
+      const timeB = (b.time || '00:00:00').split(/[+-]/)[0];
+      const dateA = new Date(`${a.date}T${timeA}`);
+      const dateB = new Date(`${b.date}T${timeB}`);
+      // Se alguma data for inválida, tratar como igual para evitar erros de sort
+      if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return 0;
+      return dateB.getTime() - dateA.getTime(); // Mais recentes primeiro
+    });
+
+  const pastEventsSorted = pastEvents
+    .sort((a, b) => {
+      const timeA = (a.time || '00:00:00').split(/[+-]/)[0];
+      const timeB = (b.time || '00:00:00').split(/[+-]/)[0];
+      const dateA = new Date(`${a.date}T${timeA}`);
+      const dateB = new Date(`${b.date}T${timeB}`);
+      return dateB.getTime() - dateA.getTime(); // Mais recentes primeiro
     });
 
   return (
@@ -404,7 +418,7 @@ export function GroupTabs({
               </p>
             ) : (
               <div className="grid gap-4">
-                {pastEvents.map((event) => (
+                {pastEventsSorted.map((event) => (
                   <EventCard
                     key={event.id}
                     event={event}
