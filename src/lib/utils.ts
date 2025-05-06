@@ -23,3 +23,46 @@ export const getStoragePathFromUrl = (url: string | null | undefined, bucketName
   }
   return null;
 };
+
+// Função para obter dados de exibição do usuário (nome e iniciais)
+export function getUserDisplayData(userData: {
+  name: string | null | undefined;
+  lastName?: string | null | undefined;
+  email?: string | null | undefined;
+}): { displayName: string; fallbackInitials: string } {
+  const firstName = userData.name;
+  const lastName = userData.lastName;
+  let displayName = "Usuário"; // Fallback padrão
+
+  if (firstName && lastName) {
+    displayName = `${firstName} ${lastName}`;
+  } else if (firstName) {
+    displayName = firstName;
+  }
+
+  // Fallback final para displayName se nem nome nem sobrenome estiverem disponíveis
+  if (displayName === "Usuário" && userData.email) {
+    displayName = userData.email;
+  }
+
+  // Calcular iniciais para o AvatarFallback
+  let fallbackInitials = "U"; // Fallback padrão
+  if (firstName && lastName) {
+    const lastNameWords = lastName.trim().split(/\s+/); // Divide o sobrenome em palavras
+    const lastWordOfLastName = lastNameWords[lastNameWords.length - 1]; // Pega a última palavra
+    if (lastWordOfLastName) {
+      fallbackInitials = `${firstName[0]}${lastWordOfLastName[0]}`.toUpperCase(); // Primeira do nome + Primeira do último sobrenome
+    } else {
+      // Fallback se o sobrenome for só espaço em branco
+      fallbackInitials = firstName[0].toUpperCase();
+    }
+  } else if (firstName) {
+    // Se só tiver nome, pega a primeira letra do nome
+    fallbackInitials = firstName[0].toUpperCase();
+  } else if (displayName !== "Usuário" && displayName.includes('@')) {
+    // Tenta pegar a inicial do email se o nome não estiver disponível
+    fallbackInitials = displayName[0].toUpperCase();
+  }
+
+  return { displayName, fallbackInitials };
+}

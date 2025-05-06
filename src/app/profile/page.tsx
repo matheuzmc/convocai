@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { ImageCropModal } from '@/components/features/ImageCropModal';
 import { getStoragePathFromUrl } from '@/lib/utils';
 import { AVATAR_COMPRESSION_OPTIONS } from '@/lib/constants';
+import { getUserDisplayData } from "@/lib/utils";
 
 // Definir SportPref fora ou no topo do componente para reutilização
 type SportPref = { sport: SportType; position: string };
@@ -95,7 +96,7 @@ export default function ProfilePage() {
     if (profileQuery.isSuccess && profileQuery.data) {
       const data = profileQuery.data;
       setName(data.name ?? "");
-      setLastName(data.last_name ?? "");
+      setLastName(data.lastName ?? "");
       setNickname(data.nickname ?? "");
       setPhoneNumber(data.phone_number ?? "");
       setSportPreferences((data.sport_preferences as SportPref[]) ?? []);
@@ -172,7 +173,7 @@ export default function ProfilePage() {
     const profileUpdates: Partial<UserProfileData & { avatar_url: string | null }> = {};
 
     if (name !== (currentProfileData.name ?? "")) profileUpdates.name = name;
-    if (lastName !== (currentProfileData.last_name ?? "")) profileUpdates.last_name = lastName;
+    if (lastName !== (currentProfileData.lastName ?? "")) profileUpdates.lastName = lastName;
     if (nickname !== (currentProfileData.nickname ?? "")) profileUpdates.nickname = nickname;
     if (phoneNumber !== (currentProfileData.phone_number ?? "")) profileUpdates.phone_number = phoneNumber;
 
@@ -326,7 +327,7 @@ export default function ProfilePage() {
 
     return (
       name !== (currentProfileData.name ?? "") ||
-      lastName !== (currentProfileData.last_name ?? "") ||
+      lastName !== (currentProfileData.lastName ?? "") ||
       nickname !== (currentProfileData.nickname ?? "") ||
       phoneNumber !== (currentProfileData.phone_number ?? "") ||
       originalPrefsString !== currentPrefsString ||
@@ -394,8 +395,12 @@ export default function ProfilePage() {
 
   const currentProfileData = profileQuery.data!;
 
-  const displayName = nickname || name || "Usuário";
-  const fallbackInitials = ((name?.[0] || '') + (lastName?.[0] || '')).toUpperCase() || 'U';
+  const { displayName, fallbackInitials } = getUserDisplayData({
+    name: name,
+    lastName: lastName,
+    email: authUser.email,
+  });
+
   const currentAvatarUrl = avatarPreviewUrl ? avatarPreviewUrl : (currentProfileData.avatar_url || '');
 
   return (

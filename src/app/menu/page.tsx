@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { getUserDisplayData } from "@/lib/utils";
 
 export default function MenuPage() {
   const router = useRouter();
@@ -51,8 +52,13 @@ export default function MenuPage() {
     },
   ];
 
-  const displayName = currentUser?.name || currentUser?.email || "Usuário";
-  const fallbackInitials = displayName?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "U";
+  // Usar a função utilitária para obter nome e iniciais
+  const { displayName, fallbackInitials } = getUserDisplayData({
+    name: currentUser?.name,
+    lastName: currentUser?.lastName,
+    email: currentUser?.email,
+  });
+
   const avatarUrl = currentUser?.avatar;
 
   if (error) {

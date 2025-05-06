@@ -14,7 +14,8 @@ export type SportType =
 // Tipos de dados
 export interface User {
   id: string;
-  name: string;
+  name: string | null;
+  lastName?: string | null;
   email: string;
   avatar: string;
   isPremium: boolean;
@@ -66,7 +67,7 @@ export interface GroupMemberWithProfile {
   id: string; // ID do perfil (se existir, senão user_id)
   user_id: string; // Adicionar ID de autenticação (user_id)
   name: string | null;
-  last_name?: string | null;
+  lastName?: string | null;
   nickname?: string | null;
   avatar: string | null;
   isAdmin: boolean;
@@ -77,7 +78,7 @@ export interface GroupMemberWithProfile {
 export interface AttendeeWithProfile extends EventAttendee {
   profile: {
     name: string | null; // Nome completo (pode ser combinação de name+lastname no futuro?)
-    last_name?: string | null; // Sobrenome (opcional aqui pois depende da query que popula)
+    lastName?: string | null;
     nickname?: string | null; // Apelido (opcional aqui)
     avatar_url: string | null;
   } | null;
@@ -92,4 +93,16 @@ export interface Notification {
   relatedId?: string;
   isRead: boolean;
   createdAt: string;
+}
+
+// Interface matching the UserProfile type in profile page
+export interface UserProfileData {
+  id: string;
+  name: string | null;
+  lastName?: string | null; // Padronizado para camelCase
+  nickname?: string | null;
+  avatar_url: string | null; // Manter snake_case pois é URL direta do storage?
+  is_premium: boolean;
+  sport_preferences: { sport: SportType; position: string }[] | null;
+  phone_number: string | null; // Manter snake_case para consistência com DB?
 } 

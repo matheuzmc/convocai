@@ -47,6 +47,7 @@ function RegisterContent() {
   const searchParams = useSearchParams(); // This hook requires Suspense
 
   const [name, setName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -93,7 +94,8 @@ function RegisterContent() {
         password: password,
         options: {
           data: {
-            name: name, 
+            name: name,
+            last_name: lastName,
           },
           emailRedirectTo: emailRedirectURL,
         },
@@ -176,8 +178,12 @@ function RegisterContent() {
                 )}
                 {/* Form fields remain the same */}
                  <div className="space-y-2">
-                    <Label htmlFor="name">Nome completo</Label>
-                    <Input id="name" type="text" placeholder="Seu nome completo" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} disabled={loading} required />
+                    <Label htmlFor="name">Nome</Label>
+                    <Input id="name" type="text" placeholder="Seu nome" autoComplete="given-name" value={name} onChange={(e) => setName(e.target.value)} disabled={loading} required />
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="lastName">Sobrenome</Label>
+                    <Input id="lastName" type="text" placeholder="Seu sobrenome" autoComplete="family-name" value={lastName} onChange={(e) => setLastName(e.target.value)} disabled={loading} required />
                 </div>
                  <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
