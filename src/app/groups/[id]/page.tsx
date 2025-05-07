@@ -196,8 +196,8 @@ export default function GroupDetailsPage() {
     <MobileLayout
       header={
         <TopNav 
-          title={group.name}
-          backHref="/groups" 
+          title="Voltar"
+          onBackClick={() => router.back()}
           showNotifications 
         />
       }
@@ -218,6 +218,9 @@ export default function GroupDetailsPage() {
           <div className="absolute inset-0 bg-gradient-to-t to-transparent dark:from-black/30 dark:via-black/10 dark:to-transparent"></div>
         </div>
 
+        <h1 className="text-2xl font-bold leading-tight break-words text-center my-4">
+          {group.name}
+        </h1>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

@@ -13,6 +13,7 @@ import { getUserDisplayData } from "@/lib/utils"
 interface TopNavProps {
   title: string
   backHref?: string
+  onBackClick?: () => void
   showNotifications?: boolean
   className?: string
   rightElement?: React.ReactNode
@@ -21,6 +22,7 @@ interface TopNavProps {
 export function TopNav({
   title,
   backHref,
+  onBackClick,
   showNotifications = false,
   className,
   rightElement,
@@ -38,8 +40,17 @@ export function TopNav({
       )}
     >
       <div className="flex items-center gap-3">
-        {backHref && (
-          <Link href={backHref} className="p-2 -ml-2">
+        {onBackClick ? (
+          <button onClick={onBackClick} className="p-2 -ml-2" aria-label="Voltar">
+            <motion.div
+              whileHover={{ x: -3 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </motion.div>
+          </button>
+        ) : backHref && (
+          <Link href={backHref} className="p-2 -ml-2" aria-label="Voltar">
             <motion.div
               whileHover={{ x: -3 }}
               whileTap={{ scale: 0.9 }}
