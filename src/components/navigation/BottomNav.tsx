@@ -20,7 +20,7 @@ export function BottomNav({ className }: BottomNavProps) {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.1 }}
       className={cn(
-        "h-16 px-4 flex items-center justify-between bg-background elevation-2 border-t border-border",
+        "h-16 px-4 grid grid-cols-3 items-center bg-background elevation-2 border-t border-border",
         className
       )}
     >

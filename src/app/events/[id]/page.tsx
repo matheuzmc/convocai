@@ -7,7 +7,7 @@ import { BottomNav } from "@/components/navigation/BottomNav";
 import { Button } from "@/components/ui/button";
 import { MapPin, Calendar, Clock, CheckCircle, XCircle, AlertTriangle, Loader2, Pencil } from "lucide-react"; 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -44,6 +44,7 @@ type AttendeeWithProfile = EventDetailsRpcResponse['attendees'][number];
 
 export default function EventDetailsPage() {
   const params = useParams();
+  const router = useRouter();
   const eventId = params.id as string;
   const queryClient = useQueryClient();
 
@@ -250,16 +251,9 @@ export default function EventDetailsPage() {
     <>
     <MobileLayout
         header={<TopNav 
-            title={event.title} 
-            backHref={`/groups/${group.id}`} 
+            title="Voltar"
+            onBackClick={() => router.back()}
             showNotifications 
-            rightElement={isAdmin && !isPast ? (
-                <Link href={`/events/${eventId}/edit`}>
-                    <Button variant="ghost" size="icon">
-                        <Pencil className="h-5 w-5" />
-                    </Button>
-                </Link>
-            ) : null}
         />}
       footer={<BottomNav />}
       >
@@ -278,9 +272,15 @@ export default function EventDetailsPage() {
                      {group.name}
                   </Link>
               </div>
-              {isPast && (
+              {isAdmin && !isPast && group ? (
+                <Link href={`/groups/${group.id}/events/${eventId}/edit`} passHref>
+                  <Button variant="outline" size="icon" className="flex-shrink-0">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </Link>
+              ) : isPast && (
                     <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded flex-shrink-0">Passado</span>
-                )}
+              )}
             </div>
 
             <div className="border bg-card rounded-lg shadow-sm overflow-hidden mt-4"> 
