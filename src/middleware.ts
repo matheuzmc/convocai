@@ -73,11 +73,12 @@ export async function middleware(request: NextRequest) {
 
   // Redirect non-logged-in users from protected routes to login
   if (!user && !isPublicRoute) {
-    // Store the attempted URL to redirect back after login (optional)
-    const redirectUrl = new URL('/login', request.url)
-    redirectUrl.searchParams.set('redirectedFrom', pathname)
-    return NextResponse.redirect(redirectUrl)
-    // return NextResponse.redirect(new URL('/login', request.url))
+    // Store the attempted URL to redirect back after login
+    const loginUrl = new URL('/login', request.url)
+    // Construct the 'next' parameter value from the original URL's pathname and search params
+    const originalPathWithQuery = request.nextUrl.pathname + request.nextUrl.search;
+    loginUrl.searchParams.set('next', originalPathWithQuery)
+    return NextResponse.redirect(loginUrl)
   }
 
   // Refresh the session cookie if needed
