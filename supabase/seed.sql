@@ -1,72 +1,66 @@
--- Supabase Seed SQL
--- Use este script para popular seu banco de dados de staging com dados de teste.
--- Lembre-se de limpar as tabelas (DELETE FROM ...) antes de rodar o seed, se necessário.
+-- Supabase Seed SQL (Versão Simplificada e Corrigida)
+
+-- REMOVER TEMPORARIAMENTE A FOREIGN KEY CONSTRAINT
+-- (Isso é necessário porque estamos inserindo IDs em public.profiles que podem ainda não existir em auth.users durante o seed local)
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
+
+-- Limpando tabelas na ordem correta para evitar problemas de FK
+DELETE FROM public.notifications;
+DELETE FROM public.event_attendees;
+DELETE FROM public.events;
+DELETE FROM public.group_invites;
+DELETE FROM public.group_members;
+DELETE FROM public.groups;
+DELETE FROM public.profiles;
 
 -- === Perfis (Profiles) ===
--- Use UUIDs fixos para facilitar a referência. Substitua por UUIDs reais se necessário.
-INSERT INTO public.profiles (id, name, last_name, nickname, avatar_url, updated_at) VALUES
-('8f5a4f8e-eb1f-4c88-8b6b-17e6d1e3e091', 'Alice', 'Admin', 'AliceA', 'https://exemplo.com/avatar_alice.png', now()),
-('b7d1c3a7-4e8a-4f2e-8a6d-3b9c1a5f7d2b', 'Bob', 'Membro', 'BobM', 'https://exemplo.com/avatar_bob.png', now()),
-('c5e2b4a8-5f9b-4e3f-9b7e-4c0d2b6g8e3c', 'Charlie', 'Pendente', 'CharlieP', null, now()); -- Perfil sem avatar
+-- (id, name, last_name, nickname, avatar_url, updated_at, fcm_tokens)
+-- updated_at tem default, fcm_tokens pode ser null.
+-- Assumindo que a coluna fcm_tokens já existe (foi criada via MCP anteriormente).
+INSERT INTO public.profiles (id, name, last_name, nickname, phone_number, avatar_url) VALUES
+('00000000-0000-0000-0000-000000000001', 'UserA', 'Test', 'TesterA', '111111111', 'https://example.com/avatarA.png'),
+('00000000-0000-0000-0000-000000000002', 'UserB', 'Beta', 'TesterB', '222222222', null);
 
 -- === Grupos (Groups) ===
-INSERT INTO public.groups (id, name, description, sport, image_url, created_by, updated_at) VALUES
-('1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d', 'Futebol de Quinta', 'Grupo para organizar o futebol semanal às quintas-feiras.', 'futebol', 'https://exemplo.com/futebol_quinta.png', '8f5a4f8e-eb1f-4c88-8b6b-17e6d1e3e091', now()), -- Alice é a criadora
-('e1f2a3b4-c5d6-e7f8-a9b0-c1d2e3f4a5b6', 'Basquete Fim de Semana', 'Jogos de basquete aos sábados ou domingos.', 'basquete', null, 'b7d1c3a7-4e8a-4f2e-8a6d-3b9c1a5f7d2b', now()); -- Bob é o criador, sem imagem
+-- (id, name, description, sport, image_url, created_by)
+-- created_at, updated_at, is_active têm defaults.
+INSERT INTO public.groups (id, name, description, sport, created_by) VALUES
+('11111111-1111-1111-1111-111111111111', 'Grupo de Teste 1', 'Descrição do grupo 1', 'futebol', '00000000-0000-0000-0000-000000000001');
 
 -- === Membros de Grupo (Group Members) ===
--- Alice é admin do grupo 'Futebol de Quinta'
-INSERT INTO public.group_members (group_id, user_id, is_admin, joined_at, updated_at) VALUES
-('1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d', '8f5a4f8e-eb1f-4c88-8b6b-17e6d1e3e091', true, now() - interval '10 days', now());
--- Bob é membro do grupo 'Futebol de Quinta'
-INSERT INTO public.group_members (group_id, user_id, is_admin, joined_at, updated_at) VALUES
-('1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d', 'b7d1c3a7-4e8a-4f2e-8a6d-3b9c1a5f7d2b', false, now() - interval '5 days', now());
--- Bob é admin do grupo 'Basquete Fim de Semana'
-INSERT INTO public.group_members (group_id, user_id, is_admin, joined_at, updated_at) VALUES
-('e1f2a3b4-c5d6-e7f8-a9b0-c1d2e3f4a5b6', 'b7d1c3a7-4e8a-4f2e-8a6d-3b9c1a5f7d2b', true, now() - interval '2 days', now());
--- Alice é membro do grupo 'Basquete Fim de Semana'
-INSERT INTO public.group_members (group_id, user_id, is_admin, joined_at, updated_at) VALUES
-('e1f2a3b4-c5d6-e7f8-a9b0-c1d2e3f4a5b6', '8f5a4f8e-eb1f-4c88-8b6b-17e6d1e3e091', false, now() - interval '1 day', now());
+-- (group_id, user_id, is_admin)
+-- joined_at tem default.
+INSERT INTO public.group_members (group_id, user_id, is_admin) VALUES
+('11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000001', true),
+('11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000002', false);
 
 -- === Eventos (Events) ===
--- Evento passado (Futebol)
-INSERT INTO public.events (id, group_id, title, description, location, event_date, event_time, is_periodic, frequency, notify_before, created_at, updated_at) VALUES
-('f0e9d8c7-b6a5-f4e3-d2c1-b0a9f8e7d6c5', '1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d', 'Futebol da Semana Passada', 'Jogo na quadra coberta.', 'Quadra Coberta X', current_date - interval '7 days', '19:00:00', false, null, 1, now(), now());
--- Evento futuro (Futebol)
-INSERT INTO public.events (id, group_id, title, description, location, event_date, event_time, is_periodic, frequency, notify_before, created_at, updated_at) VALUES
-('a9b8c7d6-e5f4-a3b2-c1d0-e9f8a7b6c5d4', 'Futebol desta Quinta', 'Jogo na quadra descoberta.', 'Quadra Descoberta Y', current_date + interval '3 days', '20:00:00', true, 'weekly', 2, now(), now());
--- Evento futuro (Basquete)
-INSERT INTO public.events (id, group_id, title, description, location, event_date, event_time, is_periodic, frequency, notify_before, created_at, updated_at) VALUES
-('b8c7d6e5-f4a3-b2c1-d0e9-f8a7b6c5d4e3', 'Basquete no Sábado', 'Racha no parque.', 'Parque Central', current_date + interval '5 days', '10:00:00', false, null, 1, now(), now());
+-- (id, group_id, title, description, location, event_date, event_time)
+-- is_periodic, frequency, notify_before, created_at, updated_at têm defaults ou são nullable.
+INSERT INTO public.events (id, group_id, title, description, location, event_date, event_time) VALUES
+('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'Evento Teste 1', 'Descrição do evento 1', 'Local Teste', current_date + interval '7 days', '10:00:00');
 
 -- === Participantes de Evento (Event Attendees) ===
--- Evento passado (Futebol): Alice confirmou, Bob recusou
-INSERT INTO public.event_attendees (event_id, user_id, status, updated_at) VALUES
-('f0e9d8c7-b6a5-f4e3-d2c1-b0a9f8e7d6c5', '8f5a4f8e-eb1f-4c88-8b6b-17e6d1e3e091', 'confirmed', now());
-INSERT INTO public.event_attendees (event_id, user_id, status, updated_at) VALUES
-('f0e9d8c7-b6a5-f4e3-d2c1-b0a9f8e7d6c5', 'b7d1c3a7-4e8a-4f2e-8a6d-3b9c1a5f7d2b', 'declined', now());
--- Evento futuro (Futebol): Alice confirmou, Bob pendente
-INSERT INTO public.event_attendees (event_id, user_id, status, updated_at) VALUES
-('a9b8c7d6-e5f4-a3b2-c1d0-e9f8a7b6c5d4', '8f5a4f8e-eb1f-4c88-8b6b-17e6d1e3e091', 'confirmed', now());
-INSERT INTO public.event_attendees (event_id, user_id, status, updated_at) VALUES
-('a9b8c7d6-e5f4-a3b2-c1d0-e9f8a7b6c5d4', 'b7d1c3a7-4e8a-4f2e-8a6d-3b9c1a5f7d2b', 'pending', now());
--- Evento futuro (Basquete): Bob confirmou, Alice pendente
-INSERT INTO public.event_attendees (event_id, user_id, status, updated_at) VALUES
-('b8c7d6e5-f4a3-b2c1-d0e9-f8a7b6c5d4e3', 'b7d1c3a7-4e8a-4f2e-8a6d-3b9c1a5f7d2b', 'confirmed', now());
-INSERT INTO public.event_attendees (event_id, user_id, status, updated_at) VALUES
-('b8c7d6e5-f4a3-b2c1-d0e9-f8a7b6c5d4e3', '8f5a4f8e-eb1f-4c88-8b6b-17e6d1e3e091', 'pending', now());
+-- (event_id, user_id, status)
+-- updated_at tem default.
+INSERT INTO public.event_attendees (event_id, user_id, status) VALUES
+('22222222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000001', 'confirmed');
 
 -- === Convites de Grupo (Group Invites) ===
--- Convite pendente para Charlie entrar no grupo 'Futebol de Quinta'
-INSERT INTO public.group_invites (group_id, inviter_id, invited_user_email, status, updated_at) VALUES
-('1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d', '8f5a4f8e-eb1f-4c88-8b6b-17e6d1e3e091', 'charlie.teste@exemplo.com', 'pending', now());
--- Convite aceito (mas usuário ainda não é membro via seed - apenas para exemplo de invite)
-INSERT INTO public.group_invites (group_id, inviter_id, invited_user_email, invited_user_id, status, updated_at) VALUES
-('e1f2a3b4-c5d6-e7f8-a9b0-c1d2e3f4a5b6', 'b7d1c3a7-4e8a-4f2e-8a6d-3b9c1a5f7d2b', 'alice.teste@exemplo.com', '8f5a4f8e-eb1f-4c88-8b6b-17e6d1e3e091', 'accepted', now());
+-- (id, group_id, token, created_by, expires_at)
+-- used_by, used_at são nullable, created_at tem default.
+-- O token precisa ser único.
+INSERT INTO public.group_invites (id, group_id, token, created_by, expires_at) VALUES
+('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 'unique_invite_token_123', '00000000-0000-0000-0000-000000000001', now() + interval '7 days');
 
 -- === Notificações (Notifications) ===
-INSERT INTO public.notifications (user_id, type, title, message, read, created_at, updated_at) VALUES
-('8f5a4f8e-eb1f-4c88-8b6b-17e6d1e3e091', 'info', 'Bem-vinda!', 'Seu perfil foi criado.', false, now(), now()),
-('b7d1c3a7-4e8a-4f2e-8a6d-3b9c1a5f7d2b', 'success', 'Convite Enviado', 'Você convidou Alice para o grupo Basquete Fim de Semana.', true, now(), now());
+-- (id, user_id, title, message, type, related_event_id, related_group_id)
+-- is_read, created_at têm defaults.
+INSERT INTO public.notifications (id, user_id, title, message, type, related_event_id) VALUES
+('44444444-4444-4444-4444-444444444444', '00000000-0000-0000-0000-000000000001', 'Notificação de Teste', 'Esta é uma notificação para UserA sobre o Evento Teste 1.', 'info', '22222222-2222-2222-2222-222222222222');
+
+-- RECRIA A FOREIGN KEY CONSTRAINT (TEMPORARIAMENTE COMENTADO PARA TESTE)
+-- ALTER TABLE public.profiles
+--  ADD CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users (id) ON DELETE CASCADE;
 
 -- Fim do Seed -- 

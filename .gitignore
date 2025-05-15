@@ -45,6 +45,7 @@ logs
 supabase/config.toml
 supabase/.temp/
 supabase/schema_prod.sql
+supabase/.env
 
 # PWA generated files
 /public/sw.js

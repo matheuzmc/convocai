@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
@@ -9,27 +9,63 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { BellRing, Smartphone, Sun } from "lucide-react";
+import { BellRing, Sun } from "lucide-react";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const [isLightMode, setIsLightMode] = React.useState(false);
-  const [notifications, setNotifications] = React.useState(true);
-  const [mounted, setMounted] = React.useState(false);
+  const [isLightMode, setIsLightMode] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  const { 
+    requestPermissionAndGetToken, 
+    permissionStatus, 
+    fcmToken, 
+    error: pushNotificationError
+  } = usePushNotifications();
 
   useEffect(() => {
     setMounted(true);
     setIsLightMode(theme === "light");
   }, [theme]);
 
+  useEffect(() => {
+    if (pushNotificationError) {
+      toast.error(`Erro nas notificações: ${pushNotificationError.message}`);
+    }
+  }, [pushNotificationError]);
+
+  useEffect(() => {
+    if (fcmToken && permissionStatus === 'granted') {
+      // Poderia mostrar um toast de sucesso aqui, mas pode ser verboso.
+      // console.log("Token FCM atualizado/registrado:", fcmToken);
+      // toast.success("Notificações Push ativadas!"); // Descomente se desejar feedback explícito
+    }
+  }, [fcmToken, permissionStatus]);
+
   const handleThemeToggle = (checked: boolean) => {
     setIsLightMode(checked);
     setTheme(checked ? "light" : "dark");
   };
 
+  const handlePushNotificationToggle = async (checked: boolean) => {
+    if (checked) {
+      if (permissionStatus !== 'granted') {
+        await requestPermissionAndGetToken();
+      } else {
+        console.log("Notificações push já estavam ativadas.");
+      }
+    } else {
+      toast.info("Para desativar completamente as notificações push, você precisa ajustar as permissões do site nas configurações do seu navegador.");
+    }
+  };
+
   if (!mounted) {
     return null;
   }
+
+  const arePushNotificationsEnabled = permissionStatus === 'granted';
 
   return (
     <MobileLayout
@@ -45,7 +81,7 @@ export default function SettingsPage() {
               <div className="flex items-center gap-2">
                 <Sun className="h-5 w-5" />
                 <div>
-                  <Label htmlFor="dark-mode">Modo claro</Label>
+                  <Label htmlFor="theme-toggle">Modo claro</Label>
                   <p className="text-sm text-muted-foreground">
                     Ativar o tema claro
                   </p>
@@ -68,30 +104,18 @@ export default function SettingsPage() {
               <div className="flex items-center gap-2">
                 <BellRing className="h-5 w-5" />
                 <div>
-                  <Label htmlFor="notifications">Notificações push</Label>
+                  <Label htmlFor="notifications-push-toggle">Notificações push</Label>
                   <p className="text-sm text-muted-foreground">
-                    Receber notificações de eventos
+                    Receber notificações de eventos e atualizações
                   </p>
                 </div>
               </div>
               <Switch 
-                id="notifications" 
-                checked={notifications}
-                onCheckedChange={setNotifications}
+                id="notifications-push-toggle" 
+                checked={arePushNotificationsEnabled}
+                onCheckedChange={handlePushNotificationToggle}
+                disabled={permissionStatus === 'denied'}
               />
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Smartphone className="h-5 w-5" />
-                <div>
-                  <Label htmlFor="vibration">Vibração</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Vibrar ao receber notificações
-                  </p>
-                </div>
-              </div>
-              <Switch id="vibration" defaultChecked />
             </div>
           </CardContent>
         </Card>

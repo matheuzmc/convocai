@@ -294,6 +294,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          fcm_tokens: string[] | null
           id: string
           is_premium: boolean
           last_name: string | null
@@ -305,6 +306,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          fcm_tokens?: string[] | null
           id: string
           is_premium?: boolean
           last_name?: string | null
@@ -316,6 +318,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          fcm_tokens?: string[] | null
           id?: string
           is_premium?: boolean
           last_name?: string | null
