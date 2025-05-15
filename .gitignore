@@ -48,5 +48,6 @@ supabase/schema_prod.sql
 supabase/.env
 
 # PWA generated files
-/public/sw.js
+# /public/sw.js
+/public/firebase-messaging-sw.js
 /public/workbox-*.js 
