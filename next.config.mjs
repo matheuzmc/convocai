@@ -1,12 +1,11 @@
 import withPWA from 'next-pwa';
 
 const pwaConfig = {
-  dest: 'public',
+  sw: 'firebase-messaging-sw.js', // Nome do arquivo do service worker de saída em /public
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development', // Desabilitar PWA em dev para evitar conflitos com HMR/Turbopack
   swSrc: 'src/lib/firebase/firebase-messaging-sw.js', // Aponta para o nosso service worker customizado
-  filename: 'firebase-messaging-sw.js', //  Força o nome do SW gerado
   // buildExcludes: [/middleware-manifest\.json$/], // Exemplo, pode não ser necessário para esta config simples
   // Se você precisar passar o firebaseConfig de outra forma, explore workboxOptions:
   // workboxOptions: {
