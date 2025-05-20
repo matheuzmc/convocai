@@ -25,20 +25,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { format, formatDistanceToNow, isToday, isYesterday } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useRouter } from "next/navigation"
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { markNotificationAsRead } from '@/services/api'
-import { createClient } from '@/lib/supabase/client';
-import { User as AuthUserType } from "@supabase/supabase-js";
-import { toast } from "sonner"
+import { useNotifications } from "@/contexts/NotificationsContext";
 
 interface NotificationCardProps {
   id: string
   title: string
   message: string
-  type: "info" | "success" | "warning" | "error"
+  type: "info" | "success" | "warning" | "error" | string
   isRead: boolean
   createdAt: string
   relatedId?: string
+  targetType?: 'event' | 'group' | null;
   className?: string
 }
 
@@ -50,21 +47,16 @@ export function NotificationCard({
   isRead,
   createdAt,
   relatedId,
+  targetType,
   className,
 }: NotificationCardProps) {
   const router = useRouter()
-  const queryClient = useQueryClient()
-  const supabase = createClient();
-  const [authUser, setAuthUser] = useState<AuthUserType | null>(null);
-  const [markedAsRead, setMarkedAsRead] = useState(isRead)
+  const [markedAsReadVisual, setMarkedAsReadVisual] = useState(isRead);
+  const { markOneAsRead } = useNotifications();
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setAuthUser(user);
-    };
-    getUser();
-  }, [supabase]);
+    setMarkedAsReadVisual(isRead);
+  }, [isRead]);
 
   const typeIcons = {
     info: <Info className="h-5 w-5 text-primary" />,
@@ -73,12 +65,9 @@ export function NotificationCard({
     error: <ShieldAlert className="h-5 w-5 text-destructive" />
   }
 
-  const getIconByTitle = (title: string) => {
-    const lowerTitle = title.toLowerCase()
-    
+  const getIconByTitle = (notificationTitle: string) => {
+    const lowerTitle = notificationTitle.toLowerCase()
     if (lowerTitle.includes("erro")) return typeIcons.error
-    
-    // Notificações de eventos
     if (lowerTitle.includes("aproximando")) return <Calendar className="h-5 w-5 text-primary" />
     if (lowerTitle.includes("evento") && lowerTitle.includes("criado")) return <Calendar className="h-5 w-5 text-blue-500" />
     if (lowerTitle.includes("cancelado")) return <X className="h-5 w-5 text-red-500" />
@@ -88,79 +77,51 @@ export function NotificationCard({
     if (lowerTitle.includes("local")) return <MapPin className="h-5 w-5 text-amber-500" />
     if (lowerTitle.includes("vagas")) return <BadgeAlert className="h-5 w-5 text-amber-500" />
     if (lowerTitle.includes("confirmação")) return <Check className="h-5 w-5 text-amber-500" />
-    
-    // Notificações de grupo e membros
     if (lowerTitle.includes("grupo")) return <Users className="h-5 w-5 text-violet-500" />
     if (lowerTitle.includes("membro")) return <Users className="h-5 w-5 text-violet-500" />
     if (lowerTitle.includes("convite")) return <MessageSquare className="h-5 w-5 text-blue-500" />
     if (lowerTitle.includes("promovido")) return <Award className="h-5 w-5 text-yellow-500" />
     
-    return typeIcons[type] || <Bell className="h-5 w-5 text-primary" />
+    const iconKey = type as ("info" | "success" | "warning" | "error");
+    if (typeIcons[iconKey]) {
+        return typeIcons[iconKey];
+    }
+    return <Bell className="h-5 w-5 text-primary" />
   }
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    
-    if (isToday(date)) {
-      return `Hoje, ${format(date, 'HH:mm', { locale: ptBR })}`
-    }
-    
-    if (isYesterday(date)) {
-      return `Ontem, ${format(date, 'HH:mm', { locale: ptBR })}`
-    }
-    
+    if (isToday(date)) return `Hoje, ${format(date, 'HH:mm', { locale: ptBR })}`
+    if (isYesterday(date)) return `Ontem, ${format(date, 'HH:mm', { locale: ptBR })}`
     if (new Date().getTime() - date.getTime() < 7 * 24 * 60 * 60 * 1000) {
       return formatDistanceToNow(date, { addSuffix: true, locale: ptBR })
     }
-    
     return format(date, "d 'de' MMM", { locale: ptBR })
   }
 
-  const markAsReadMutation = useMutation({
-    mutationFn: () => markNotificationAsRead(id),
-    onSuccess: () => {
-      console.log(`Notification ${id} marked as read via mutation.`)
-      setMarkedAsRead(true)
-      queryClient.invalidateQueries({ queryKey: ['unreadNotifications', authUser?.id] })
-      queryClient.invalidateQueries({ queryKey: ['allNotifications', authUser?.id] })
-    },
-    onError: (error) => {
-      console.error(`Error marking notification ${id} as read:`, error)
-      setMarkedAsRead(isRead)
-      toast.error(`Erro ao marcar notificação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`)
-    },
-  })
-
-  const handleClick = () => {
-    if (!markedAsRead) {
-      markAsReadMutation.mutate()
+  const handleClick = async () => {
+    if (!markedAsReadVisual) {
+      setMarkedAsReadVisual(true); 
+      try {
+        await markOneAsRead(id);
+      } catch (error) {
+        setMarkedAsReadVisual(isRead); 
+        console.error(`Falha ao marcar notificação ${id} como lida no card:`, error);
+      }
     }
 
-    if (!relatedId) {
-      router.push('/notifications')
-      return
-    }
+    let targetUrl = '/notifications'; // URL Padrão
 
-    const lowerTitle = title.toLowerCase()
+    if (relatedId && targetType) {
+      if (targetType === 'group') {
+        targetUrl = `/groups/${relatedId}`;
+      } else if (targetType === 'event') {
+        targetUrl = `/events/${relatedId}`;
+      }
+    }
     
-    if (lowerTitle.includes("grupo") || 
-        lowerTitle.includes("membro") || 
-        lowerTitle.includes("convite para grupo") || 
-        lowerTitle.includes("promovido")) {
-      router.push(`/groups/${relatedId}`)
-    } else if (lowerTitle.includes("evento") || 
-               lowerTitle.includes("aproximando") ||
-               lowerTitle.includes("cancelado") ||
-               lowerTitle.includes("alterado") ||
-               lowerTitle.includes("reagendado") ||
-               lowerTitle.includes("horário") ||
-               lowerTitle.includes("local") ||
-               lowerTitle.includes("vagas") ||
-               lowerTitle.includes("confirmação")) {
-      router.push(`/events/${relatedId}`)
-    } else {
-      router.push('/notifications')
-    }
+    console.log(`[NotificationCard] Navigating to: ${targetUrl} (relatedId: ${relatedId}, targetType: ${targetType}, title: "${title}")`);
+    router.push(targetUrl);
   }
 
   return (
@@ -172,11 +133,11 @@ export function NotificationCard({
       onClick={handleClick}
       className={cn(
         "relative overflow-hidden rounded-xl border bg-card transition-all cursor-pointer",
-        markedAsRead ? "border-border opacity-70" : "border-primary/40 shadow-sm",
+        markedAsReadVisual ? "border-border opacity-70" : "border-primary/40 shadow-sm",
         className
       )}
     >
-      {!markedAsRead && (
+      {!markedAsReadVisual && (
         <div className="absolute right-0 top-0 -mt-px -mr-px">
           <div className="bg-primary text-primary-foreground text-[10px] font-medium px-2 py-0.5 rounded-bl-lg">
             Novo
@@ -194,7 +155,7 @@ export function NotificationCard({
             <div className="flex justify-between items-start gap-2 mb-1">
               <h3 className={cn(
                 "font-medium text-sm line-clamp-1", 
-                !markedAsRead && "font-semibold text-foreground"
+                !markedAsReadVisual && "font-semibold text-foreground"
               )}>
                 {title}
               </h3>

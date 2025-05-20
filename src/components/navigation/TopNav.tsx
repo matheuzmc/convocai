@@ -9,6 +9,7 @@ import { motion } from "framer-motion"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getUserDisplayData } from "@/lib/utils"
+import { useNotifications } from "@/contexts/NotificationsContext"
 
 interface TopNavProps {
   title: string
@@ -28,6 +29,9 @@ export function TopNav({
   rightElement,
 }: TopNavProps) {
   const { data: currentUser, isLoading: isLoadingUser } = useCurrentUser();
+  const { unreadCount, isLoading: isLoadingNotificationsContext } = useNotifications();
+
+  const shouldShowBellIcon = showNotifications && currentUser && !isLoadingUser;
 
   return (
     <motion.div
@@ -69,21 +73,25 @@ export function TopNav({
         </motion.h1>
       </div>
       <div className="flex items-center gap-4">
-        {showNotifications && (
-          <Link href="/notifications" className="relative">
+        {shouldShowBellIcon && (
+          <Link href="/notifications" className="relative p-2">
             <motion.div
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
             >
               <Bell className="h-5 w-5" />
+              {unreadCount > 0 && !isLoadingNotificationsContext && (
               <motion.span 
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2, type: "spring", stiffness: 500 }}
-                className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white"
+                  key={unreadCount}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 20, duration: 0.2 }}
+                  className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white"
               >
-                3
+                  {unreadCount > 9 ? '9+' : unreadCount}
               </motion.span>
+              )}
             </motion.div>
           </Link>
         )}

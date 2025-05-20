@@ -100,7 +100,8 @@ export const config = {
      * - images (public images folder)
      * - icons (PWA icons folder)
      * - auth/callback (Supabase auth callback)
+     * - firebase-messaging-sw.js (Firebase Service Worker)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|manifest\.json|images|icons|auth/callback).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest\.json|images|icons|auth/callback|firebase-messaging-sw\\.js).*)',
   ],
 } 
