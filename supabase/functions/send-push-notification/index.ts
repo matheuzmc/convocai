@@ -155,8 +155,26 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Missing required fields in notification record (user_id, title, message).' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
     }
 
-    const { user_id: userId, title, message } = notificationRecord
-    const notificationData = notificationRecord.data || { click_action: '/notifications' }
+    const { user_id: userId, title, message, related_event_id, related_group_id } = notificationRecord
+    // const notificationData = notificationRecord.data || { click_action: '/notifications' }
+
+    let targetUrl = '/notifications'; // Fallback URL
+    if (related_event_id) {
+      targetUrl = `/events/${related_event_id}`;
+    } else if (related_group_id) {
+      // TODO: Confirmar se a rota para grupos é /groups/:id ou algo diferente
+      targetUrl = `/groups/${related_group_id}`;
+    }
+
+    // O Service Worker (public/firebase-messaging-sw.js) espera event.notification.data.url
+    // O webpush.fcm_options.link também usará esta URL.
+    const notificationDataForFcm = {
+      // Preserva quaisquer outros dados que possam estar em notificationRecord.data no futuro,
+      // embora a tabela 'notifications' atualmente não tenha uma coluna 'data'.
+      ...(notificationRecord.data || {}), 
+      url: targetUrl,
+      click_action: targetUrl // Manter para consistência e para o fcm_options.link
+    };
 
     const fcmTokens = await getFcmTokens(supabaseClient, userId)
     if (fcmTokens.length === 0) {
@@ -182,7 +200,7 @@ serve(async (req: Request) => {
     // console.log('Successfully obtained Google Access Token.') // Log verboso
 
     const sendPromises = fcmTokens.map(token => 
-      sendPushNotification(projectId, accessToken, token, title, message, notificationData)
+      sendPushNotification(projectId, accessToken, token, title, message, notificationDataForFcm)
     )
     const results = await Promise.all(sendPromises)
     // console.log('FCM send results:', JSON.stringify(results, null, 2)) // Log verboso

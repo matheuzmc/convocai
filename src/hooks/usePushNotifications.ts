@@ -79,6 +79,7 @@ export function usePushNotifications() {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       const initialPermission = Notification.permission;
       setPermissionStatus(initialPermission);
+      // console.log('[usePushNotifications] Initial permission status:', initialPermission); // Pode ser removido ou mantido
     }
   }, []);
 
@@ -129,7 +130,26 @@ export function usePushNotifications() {
     try {
       const messagingInstance = getFirebaseMessaging();
       if (messagingInstance) {
-        const currentToken = await getToken(messagingInstance, { vapidKey: VAPID_KEY });
+        // Tentar obter o registro do nosso Service Worker principal
+        const swRegistration = await navigator.serviceWorker.getRegistration('/');
+        
+        if (swRegistration) {
+          console.log('[usePushNotifications] Usando SW Registration existente do escopo /', swRegistration);
+        } else {
+          console.warn('[usePushNotifications] Não foi encontrado SW Registration para o escopo /. O Firebase pode tentar registrar o default.');
+        }
+
+        const tokenOptions: { vapidKey: string; serviceWorkerRegistration?: ServiceWorkerRegistration } = { 
+          vapidKey: VAPID_KEY 
+        };
+
+        if (swRegistration) {
+          tokenOptions.serviceWorkerRegistration = swRegistration;
+        }
+
+        console.log('[usePushNotifications] Chamando getToken com opções:', tokenOptions);
+        const currentToken = await getToken(messagingInstance, tokenOptions);
+
         if (currentToken) {
           setFcmToken(currentToken);
           console.log('Token FCM obtido:', currentToken);
@@ -153,9 +173,6 @@ export function usePushNotifications() {
     if (messagingInstance && permissionStatus === 'granted') {
       const unsubscribe = onMessage(messagingInstance, (payload) => {
         console.log('Mensagem recebida em primeiro plano: ', payload);
-        // TODO: Mostrar uma notificação no app (toast, etc.) ou atualizar a UI
-        // Ex: toast(payload.notification?.title || 'Nova mensagem');
-        // Lembre-se de que o service worker (firebase-messaging-sw.js) lida com msgs em background.
       });
       return () => {
         unsubscribe();
@@ -163,7 +180,6 @@ export function usePushNotifications() {
     }
   }, [permissionStatus]);
 
-  // Novo useEffect para buscar o token se a permissão já estiver concedida no carregamento
   useEffect(() => {
     if (permissionStatus === 'granted' && authUser && !fcmToken && !error) {
       retrieveToken();

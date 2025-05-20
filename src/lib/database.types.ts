@@ -238,6 +238,7 @@ export type Database = {
           created_at: string
           id: string
           is_read: boolean
+          is_seen: boolean
           message: string
           related_event_id: string | null
           related_group_id: string | null
@@ -249,6 +250,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean
+          is_seen?: boolean
           message: string
           related_event_id?: string | null
           related_group_id?: string | null
@@ -260,6 +262,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean
+          is_seen?: boolean
           message?: string
           related_event_id?: string | null
           related_group_id?: string | null

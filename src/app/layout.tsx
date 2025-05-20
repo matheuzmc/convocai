@@ -1,3 +1,5 @@
+// "use client";
+
 import { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -5,6 +7,9 @@ import { cn } from "@/lib/utils";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { NotificationsProvider } from "@/contexts/NotificationsContext";
+import { ServiceWorkerRegistrar } from "@/components/providers/ServiceWorkerRegistrar";
+// import { useEffect } from 'react';
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -24,6 +29,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // useEffect foi REMOVIDO daqui
+
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <meta name="theme-color" content="#000000" />
@@ -36,8 +43,11 @@ export default function RootLayout({
       >
         <QueryProvider>
           <ThemeProvider>
-            {children}
-            <Toaster position="bottom-center" duration={2200} swipeDirections={['right', 'left']} offset={{bottom: 80}} mobileOffset={{bottom: 80}} />
+            <NotificationsProvider>
+              <ServiceWorkerRegistrar />
+              {children}
+              <Toaster position="bottom-center" duration={2200} swipeDirections={['right', 'left']} offset={{bottom: 80}} mobileOffset={{bottom: 80}} />
+            </NotificationsProvider>
           </ThemeProvider>
         </QueryProvider>
       </body>
