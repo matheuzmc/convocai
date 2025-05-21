@@ -99,43 +99,45 @@ export const NotificationsProvider: React.FC<NotificationsProviderProps> = ({ ch
   }, [supabase, mapDbNotificationToNotification]);
 
   useEffect(() => {
-    const authUnsubscribe: (() => void) | undefined = (() => {
-      const getCurrentUserAndInitialLoad = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        setAuthUser(user);
-        if (user) {
-          await fetchInitialNotifications(user.id);
-        } else {
-          setNotifications([]);
-          setIsLoading(false);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setAuthUser(currentAuthUser => {
+        if (!currentAuthUser && user) {
+          return user;
         }
-      };
+        return currentAuthUser; 
+      });
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      const newUserFromSession = session?.user ?? null;
       
-      getCurrentUserAndInitialLoad();
+      setAuthUser(prevAuthUser => {
+        const oldUserId = prevAuthUser?.id;
+        const newUserId = newUserFromSession?.id;
 
-      const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        console.log('Auth state changed. Event:', _event, 'Session:', session);
-        const currentUser = session?.user ?? null;
-        const previousAuthUserId = authUser?.id;
-        setAuthUser(currentUser);
-
-        if (currentUser) {
-          if (!previousAuthUserId || previousAuthUserId !== currentUser.id) {
-            await fetchInitialNotifications(currentUser.id);
-          }
+        if (oldUserId !== newUserId) {
+          return newUserFromSession;
         } else {
-          setNotifications([]);
+          return prevAuthUser; 
         }
       });
-      return listener.subscription?.unsubscribe;
-    })();
+    });
 
     return () => {
-      if (authUnsubscribe) {
-        authUnsubscribe();
-      }
+      authListener.subscription.unsubscribe();
     };
-  }, [supabase, fetchInitialNotifications, authUser?.id]);
+  }, [supabase]);
+
+  useEffect(() => {
+    if (authUser?.id) {
+      fetchInitialNotifications(authUser.id);
+    } else {
+      setNotifications([]);
+      setUnreadCount(0);
+      setIsLoading(false);
+      setError(null);
+    }
+  }, [authUser, fetchInitialNotifications]);
 
   useEffect(() => {
     if (!authUser) return;
