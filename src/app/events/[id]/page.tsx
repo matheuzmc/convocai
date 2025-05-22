@@ -5,7 +5,7 @@ import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { Button } from "@/components/ui/button";
-import { MapPin, Calendar, Clock, CheckCircle, XCircle, AlertTriangle, Loader2, Pencil } from "lucide-react"; 
+import { MapPin, Calendar, Clock, CheckCircle, XCircle, AlertTriangle, Loader2, Pencil, Trash2, MoreVertical } from "lucide-react"; 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,7 +13,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"; 
 import { useCurrentUser } from "@/hooks/useCurrentUser"; 
-import { getEventDetails, respondToEvent, EventDetailsRpcResponse } from "@/services/api"; 
+import { getEventDetails, EventDetailsRpcResponse } from "@/services/api";
+import { handleRespondToEventAction, handleDeleteEventAction } from "@/app/events/actions";
 import { toast } from "sonner"; 
 import { MemberDetails } from "@/components/ui-elements/MemberDetails";
 import {
@@ -26,6 +27,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 // Simplified helper component for static inline icons
 const InlineResponseButtons = ({
@@ -68,6 +76,7 @@ export default function EventDetailsPage() {
   const [cardSlide, setCardSlide] = useState(0);
   const sliderRef = useRef<HTMLDivElement>(null);
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
+  const [isDeleteEventConfirmOpen, setIsDeleteEventConfirmOpen] = useState(false);
 
   // Refs and state for CARD SWIPING
   const touchStartX = useRef<number | null>(null);
@@ -107,7 +116,10 @@ export default function EventDetailsPage() {
     mutationFn: async (status: 'confirmed' | 'declined') => {
         if (!currentUser) throw new Error("User not logged in");
         if (!event) throw new Error("Event data not available");
-        await respondToEvent(event.id, currentUser.id, status);
+        const result = await handleRespondToEventAction({ eventId: event.id, status });
+        if (result.error) {
+          throw new Error(result.error);
+        }
         return status;
     },
     onSuccess: (status) => {
@@ -123,6 +135,34 @@ export default function EventDetailsPage() {
     },
     onError: (error) => {
       toast.error(`Erro ao responder ao evento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
+  });
+
+  // Mutação para excluir o evento
+  const deleteEventMutation = useMutation({
+    mutationFn: async () => {
+      if (!event?.id) throw new Error("ID do evento não disponível para exclusão.");
+      const result = await handleDeleteEventAction(event.id);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      return result;
+    },
+    onSuccess: () => {
+      toast.success("Evento excluído com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ['userUpcomingEvents', currentUser?.id] });
+      queryClient.invalidateQueries({ queryKey: ['userPastEvents', currentUser?.id] });
+      queryClient.invalidateQueries({ queryKey: ['groupDetails', group?.id] }); 
+      // Após excluir, redirecionar para a página do grupo ou para a lista de eventos
+      if (group?.id) {
+        router.push(`/groups/${group.id}`);
+      } else {
+        router.push('/events'); // Fallback
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao excluir evento: ${error.message}`);
+      setIsDeleteEventConfirmOpen(false); // Fechar diálogo em caso de erro
     }
   });
 
@@ -272,15 +312,35 @@ export default function EventDetailsPage() {
                      {group.name}
                   </Link>
               </div>
-              {isAdmin && !isPast && group ? (
-                <Link href={`/groups/${group.id}/events/${eventId}/edit`} passHref>
-                  <Button variant="outline" size="icon" className="flex-shrink-0">
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </Link>
-              ) : isPast && (
-                    <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded flex-shrink-0">Passado</span>
-              )}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {isAdmin && !isPast && event && group && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" title="Mais opções do evento" className="flex-shrink-0">
+                        <MoreVertical className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => router.push(`/groups/${group.id}/events/${event.id}/edit`)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        <span>Editar Evento</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setIsDeleteEventConfirmOpen(true)}
+                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                        disabled={deleteEventMutation.isPending}
+                      >
+                        {deleteEventMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                        <span>Excluir Evento</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                {isPast && (
+                      <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded flex-shrink-0">Passado</span>
+                )}
+              </div>
             </div>
 
             <div className="border bg-card rounded-lg shadow-sm overflow-hidden mt-4"> 
@@ -597,6 +657,30 @@ export default function EventDetailsPage() {
             onOpenChange={setIsMemberDrawerOpen}
         />
       )}
+
+      {/* AlertDialog para confirmar exclusão do evento */}
+      <AlertDialog open={isDeleteEventConfirmOpen} onOpenChange={setIsDeleteEventConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão do Evento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir permanentemente o evento &quot;{event?.title}&quot;? 
+              Esta ação não pode ser desfeita e todos os dados de participação serão perdidos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteEventMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => deleteEventMutation.mutate()} 
+              disabled={deleteEventMutation.isPending}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              {deleteEventMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Sim, excluir evento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

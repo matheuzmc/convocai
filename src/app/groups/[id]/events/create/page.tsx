@@ -13,6 +13,7 @@ import { createEvent } from "@/services/api";
 import { useRouter, useParams } from "next/navigation";
 import { Event } from "@/lib/types";
 import { toast } from "sonner";
+import { triggerNewEventNotification } from "@/app/notifications/actions";
 
 export default function CreateEventPage() {
   const queryClient = useQueryClient();
@@ -48,12 +49,27 @@ export default function CreateEventPage() {
         };
         return createEvent(groupId, apiPayload);
     },
-    onSuccess: () => {
+    onSuccess: (newEventId, variables) => {
       queryClient.invalidateQueries({ queryKey: ['groupDetails', groupId] });
       queryClient.invalidateQueries({ queryKey: ['userUpcomingEvents', authUser?.id] });
       queryClient.invalidateQueries({ queryKey: ['userPastEvents', authUser?.id] });
       
       toast.success(`Evento criado com sucesso!`);
+      
+      // Disparar notificação de novo evento
+      if (authUser?.id && groupId && newEventId && variables.title) {
+        triggerNewEventNotification(groupId, newEventId, variables.title, authUser.id)
+          .then(result => {
+            if (result?.error) {
+              console.warn("Falha ao disparar notificação de novo evento:", result.error);
+            } else if (result?.success) {
+              console.log(`Notificação de novo evento disparada para ${result.count} usuários.`);
+            }
+          })
+          .catch(err => {
+            console.error("Erro ao chamar triggerNewEventNotification:", err);
+          });
+      }
       router.push(`/groups/${groupId}`);
     },
     onError: (error) => {

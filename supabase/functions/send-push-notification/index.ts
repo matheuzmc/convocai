@@ -162,7 +162,6 @@ serve(async (req: Request) => {
     if (related_event_id) {
       targetUrl = `/events/${related_event_id}`;
     } else if (related_group_id) {
-      // TODO: Confirmar se a rota para grupos é /groups/:id ou algo diferente
       targetUrl = `/groups/${related_group_id}`;
     }
 

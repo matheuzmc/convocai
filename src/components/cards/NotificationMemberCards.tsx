@@ -68,24 +68,41 @@ export function NotificationCard({
   const getIconByTitle = (notificationTitle: string) => {
     const lowerTitle = notificationTitle.toLowerCase()
     if (lowerTitle.includes("erro")) return typeIcons.error
+    
+    if (lowerTitle.startsWith("novo evento:")) return <Calendar className="h-5 w-5 text-blue-500" />
+    if (lowerTitle.startsWith("evento atualizado:")) return <Calendar className="h-5 w-5 text-primary" />
+    if (lowerTitle.startsWith("evento cancelado:")) return <Calendar className="h-5 w-5 text-primary" />
     if (lowerTitle.includes("aproximando")) return <Calendar className="h-5 w-5 text-primary" />
-    if (lowerTitle.includes("evento") && lowerTitle.includes("criado")) return <Calendar className="h-5 w-5 text-blue-500" />
-    if (lowerTitle.includes("cancelado")) return <X className="h-5 w-5 text-red-500" />
-    if (lowerTitle.includes("alterado")) return <RefreshCcw className="h-5 w-5 text-amber-500" />
+
+    if (lowerTitle.startsWith("grupo excluído:")) return <Users className="h-5 w-5 text-primary" />
+    if (lowerTitle.startsWith("grupo atualizado:")) return <Users className="h-5 w-5 text-primary" />
+    if (lowerTitle.includes("membro") && lowerTitle.includes("entrou")) return <Users className="h-5 w-5 text-green-500" />
+
+    if (lowerTitle.includes("presença confirmada")) return <Check className="h-5 w-5 text-green-500" />
+    if (lowerTitle.includes("presença cancelada") && !lowerTitle.startsWith("evento cancelado:")) return <X className="h-5 w-5 text-red-500" />
+
+    if (lowerTitle.includes("cancelado") && !lowerTitle.startsWith("evento cancelado:") && !lowerTitle.includes("presença cancelada")) return <X className="h-5 w-5 text-red-500" />
+    if (lowerTitle.includes("alterado") && !lowerTitle.startsWith("evento atualizado:") && !lowerTitle.startsWith("grupo atualizado:")) return <RefreshCcw className="h-5 w-5 text-amber-500" />
     if (lowerTitle.includes("reagendado")) return <RefreshCcw className="h-5 w-5 text-amber-500" />
     if (lowerTitle.includes("horário")) return <Clock className="h-5 w-5 text-amber-500" />
     if (lowerTitle.includes("local")) return <MapPin className="h-5 w-5 text-amber-500" />
     if (lowerTitle.includes("vagas")) return <BadgeAlert className="h-5 w-5 text-amber-500" />
-    if (lowerTitle.includes("confirmação")) return <Check className="h-5 w-5 text-amber-500" />
-    if (lowerTitle.includes("grupo")) return <Users className="h-5 w-5 text-violet-500" />
-    if (lowerTitle.includes("membro")) return <Users className="h-5 w-5 text-violet-500" />
     if (lowerTitle.includes("convite")) return <MessageSquare className="h-5 w-5 text-blue-500" />
     if (lowerTitle.includes("promovido")) return <Award className="h-5 w-5 text-yellow-500" />
     
     const iconKey = type as ("info" | "success" | "warning" | "error");
-    if (typeIcons[iconKey]) {
-        return typeIcons[iconKey];
+    if (iconKey === 'info' && (lowerTitle.startsWith("novo evento:") || lowerTitle.startsWith("evento atualizado:") || lowerTitle.startsWith("evento cancelado:") || lowerTitle.startsWith("grupo excluído:") || lowerTitle.startsWith("grupo atualizado:") )) {
+    } else {
+        if (typeIcons[iconKey]) {
+            return typeIcons[iconKey];
+        }
     }
+
+    if (type === 'info') {
+        if (targetType === 'group') return <Users className="h-5 w-5 text-primary" />;
+        if (targetType === 'event') return <Calendar className="h-5 w-5 text-primary" />;
+    }
+
     return <Bell className="h-5 w-5 text-primary" />
   }
 

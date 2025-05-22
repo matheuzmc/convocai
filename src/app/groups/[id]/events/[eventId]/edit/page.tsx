@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Event } from "@/lib/types";
+import { triggerEventUpdateNotification } from "@/app/notifications/actions";
 
 export default function EditEventPage() {
   const router = useRouter();
@@ -68,14 +69,40 @@ export default function EditEventPage() {
       };
       return updateEvent(eventId, updatePayload);
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       toast.success("Evento atualizado com sucesso!");
       // Invalidar queries relevantes
       queryClient.invalidateQueries({ queryKey: ['eventDetails', eventId] });
       queryClient.invalidateQueries({ queryKey: ['groupDetails', groupId] });
       queryClient.invalidateQueries({ queryKey: ['userUpcomingEvents', currentUser?.id] }); 
-      // Also invalidate past events in case the date was changed
       queryClient.invalidateQueries({ queryKey: ['userPastEvents', currentUser?.id] }); 
+      
+      // Lógica de notificação
+      const changedSummary: string[] = [];
+      if (event && variables.title !== event.title) changedSummary.push("título");
+      if (event && variables.location !== event.location) changedSummary.push("local");
+      // Para data e hora, a comparação direta de strings pode ser suficiente se o formato for consistente.
+      // Ou podemos considerar que se foram passados no 'variables', eles mudaram.
+      // Aqui, assumimos que se a string é diferente, houve mudança.
+      if (event && variables.date !== event.date) changedSummary.push("data");
+      if (event && variables.time !== event.time) changedSummary.push("horário");
+      // Adicionar outros campos se desejado: description, isPeriodic, frequency, notifyBefore
+      // Ex: if (event && variables.description !== event.description) changedSummary.push("descrição");
+
+      if (currentUser?.id && eventId && changedSummary.length > 0) {
+        triggerEventUpdateNotification(eventId, currentUser.id, changedSummary)
+          .then(result => {
+            if (result?.error) {
+              console.warn("Falha ao disparar notificação de atualização de evento:", result.error);
+            } else if (result?.success) {
+              console.log(`Notificação de atualização de evento disparada para ${result.count} usuários.`);
+            }
+          })
+          .catch(err => {
+            console.error("Erro ao chamar triggerEventUpdateNotification:", err);
+          });
+      }
+      
       // Redirecionar para detalhes do evento
       router.push(`/events/${eventId}`);
     },
