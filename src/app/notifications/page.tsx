@@ -7,7 +7,7 @@ import { BottomNav } from '@/components/navigation/BottomNav';
 import { NotificationCard } from '@/components/cards/NotificationMemberCards';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MailCheck } from 'lucide-react';
+import { MailCheck, Loader2 } from 'lucide-react';
 import { toast } from "sonner";
 import { useNotifications } from "@/contexts/NotificationsContext";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -20,6 +20,9 @@ export default function NotificationsPage() {
         markAllAsRead,
         markAllAsSeen,
         unreadCount,
+        loadMoreNotifications,
+        hasMore,
+        isLoadingMore,
     } = useNotifications();
 
     useEffect(() => {
@@ -105,6 +108,25 @@ export default function NotificationsPage() {
                                 {...notification} 
                             />
                         ))}
+                    </div>
+                )}
+
+                {!isLoading && hasMore && (
+                    <div className="mt-6 text-center">
+                        <Button
+                            onClick={loadMoreNotifications}
+                            disabled={isLoadingMore}
+                            variant="outline"
+                        >
+                            {isLoadingMore ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Carregando...
+                                </>    
+                            ) : (
+                                'Carregar Mais'
+                            )}
+                        </Button>
                     </div>
                 )}
             </div>

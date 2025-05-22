@@ -74,7 +74,7 @@ export function TopNav({
       </div>
       <div className="flex items-center gap-4">
         {shouldShowBellIcon && (
-          <Link href="/notifications" className="relative p-2">
+          <Link href="/notifications" className="relative top-0.5">
             <motion.div
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
@@ -87,7 +87,7 @@ export function TopNav({
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0, opacity: 0 }}
                   transition={{ type: "spring", stiffness: 500, damping: 20, duration: 0.2 }}
-                  className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white"
+                  className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white"
               >
                   {unreadCount > 9 ? '9+' : unreadCount}
               </motion.span>

@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import type { Database } from '@/lib/database.types';
 import { toast } from 'sonner';
 
+const NOTIFICATIONS_PER_PAGE = 6; // Quantidade de notificações por página
+
 // Tipos para o Supabase (gerados)
 type DbNotification = Database['public']['Tables']['notifications']['Row'];
 
@@ -30,7 +32,10 @@ interface NotificationsContextType {
   markAllAsRead: () => Promise<void>;
   markAllAsSeen: () => Promise<void>; // Nova função
   isLoading: boolean;
+  isLoadingMore: boolean; // Novo estado para carregamento de mais itens
   error: Error | null;
+  loadMoreNotifications: () => void; // Nova função para carregar mais
+  hasMore: boolean; // Novo estado para indicar se há mais itens
 }
 
 const NotificationsContext = createContext<NotificationsContextType | undefined>(undefined);
@@ -46,6 +51,9 @@ export const NotificationsProvider: React.FC<NotificationsProviderProps> = ({ ch
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [hasMore, setHasMore] = useState<boolean>(true);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
   const mapDbNotificationToNotification = useCallback((dbNotification: DbNotification): AppNotification => {
     // Garante que o tipo seja um dos valores permitidos ou 'default'
@@ -75,26 +83,47 @@ export const NotificationsProvider: React.FC<NotificationsProviderProps> = ({ ch
     };
   }, []);
 
-  const fetchInitialNotifications = useCallback(async (userId: string) => {
-    setIsLoading(true);
+  const fetchNotifications = useCallback(async (userId: string, page: number) => {
+    if (page === 1) {
+      setIsLoading(true);
+    } else {
+      setIsLoadingMore(true);
+    }
     setError(null);
+
+    const limit = NOTIFICATIONS_PER_PAGE;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
     try {
       const { data: fetchedNotificationsData, error: fetchError } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (fetchError) throw fetchError;
       
       const mappedNotifications = fetchedNotificationsData.map(mapDbNotificationToNotification);
-      setNotifications(mappedNotifications);
+      
+      setNotifications(prevNotifications => 
+        page === 1 ? mappedNotifications : [...prevNotifications, ...mappedNotifications]
+      );
+      setHasMore(mappedNotifications.length === limit);
+      if (page === 1) setCurrentPage(1); // Reseta a página se for o primeiro fetch
+
     } catch (err) {
-      console.error('Error fetching initial notifications:', err);
+      console.error(`Error fetching notifications (page ${page}):`, err);
       setError(err as Error);
-      setNotifications([]);
+      // Não limpar notificações se for erro em loadMore para manter o que já tem
+      if (page === 1) setNotifications([]); 
     } finally {
-      setIsLoading(false);
+      if (page === 1) {
+        setIsLoading(false);
+      } else {
+        setIsLoadingMore(false);
+      }
     }
   }, [supabase, mapDbNotificationToNotification]);
 
@@ -130,14 +159,19 @@ export const NotificationsProvider: React.FC<NotificationsProviderProps> = ({ ch
 
   useEffect(() => {
     if (authUser?.id) {
-      fetchInitialNotifications(authUser.id);
+      setNotifications([]); // Limpa notificações antigas antes de buscar novas para o usuário
+      setCurrentPage(1);    // Reseta a página para 1
+      setHasMore(true);     // Assume que tem mais até a primeira busca dizer o contrário
+      fetchNotifications(authUser.id, 1); // Busca a primeira página
     } else {
       setNotifications([]);
       setUnreadCount(0);
+      setCurrentPage(1);
+      setHasMore(true); // Resetar estado hasMore
       setIsLoading(false);
       setError(null);
     }
-  }, [authUser, fetchInitialNotifications]);
+  }, [authUser, fetchNotifications]);
 
   useEffect(() => {
     if (!authUser) return;
@@ -282,11 +316,22 @@ export const NotificationsProvider: React.FC<NotificationsProviderProps> = ({ ch
     }
   };
 
+  const loadMoreNotifications = useCallback(() => {
+    if (!isLoadingMore && hasMore && authUser?.id) {
+      const nextPage = currentPage + 1;
+      fetchNotifications(authUser.id, nextPage);
+      setCurrentPage(nextPage);
+    }
+  }, [isLoadingMore, hasMore, authUser, currentPage, fetchNotifications]);
+
   const contextValue: NotificationsContextType = {
     notifications,
     unreadCount,
     isLoading,
+    isLoadingMore,
     error,
+    loadMoreNotifications,
+    hasMore,
     markOneAsRead: handleMarkOneAsRead,
     markAllAsRead: handleMarkAllAsRead,
     markAllAsSeen: handleMarkAllAsSeen,
