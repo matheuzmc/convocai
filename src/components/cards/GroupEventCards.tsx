@@ -9,7 +9,7 @@ import { Event } from "@/lib/types";
 import { createClient } from '@/lib/supabase/client';
 import { User as AuthUserType } from "@supabase/supabase-js";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { respondToEvent } from "@/services/api";
+import { handleRespondToEventAction } from "@/app/events/actions";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -111,7 +111,10 @@ export function EventCard({ event, className }: EventCardProps) {
   const mutation = useMutation({
     mutationFn: async (status: 'confirmed' | 'declined') => {
         if (!authUser) throw new Error("User not logged in");
-        await respondToEvent(event.id, authUser.id, status);
+        const result = await handleRespondToEventAction({ eventId: event.id, status });
+        if (result.error) {
+          throw new Error(result.error);
+        }
         return status;
     },
     onSuccess: (status) => {

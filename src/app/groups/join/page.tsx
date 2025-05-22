@@ -15,6 +15,7 @@ import { BottomNav } from '@/components/navigation/BottomNav';
 import { Loader2, AlertTriangle, PartyPopper } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from "sonner"; // Import toast
+import { triggerNewGroupMemberNotification } from '@/app/notifications/actions'; // Importar a Server Action
 
 // Wrapper component to access searchParams
 function AcceptInviteContent() {
@@ -70,7 +71,25 @@ function AcceptInviteContent() {
             queryClient.invalidateQueries({ queryKey: ['userGroups', authUser?.id] });
             queryClient.invalidateQueries({ queryKey: ['groupDetails', data.groupId] });
             toast.success("Você entrou no grupo com sucesso!");
-            router.push(`/groups/${data.groupId}`);
+            
+
+            // Disparar a notificação de novo membro
+            if (authUser?.id && data.groupId) {
+                // Chamada à Server Action (não precisa de await aqui, é fire-and-forget do ponto de vista do cliente)
+                // O actorUserId aqui é o próprio novo membro, pois ele aceitou o convite.
+                triggerNewGroupMemberNotification(data.groupId, authUser.id, authUser.id)
+                    .then(result => {
+                        if (result?.error) {
+                            console.warn("Falha ao disparar notificação de novo membro:", result.error);
+                        } else if (result?.success) {
+                            console.log(`Notificação de novo membro disparada para ${result.count} usuários.`);
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Erro ao chamar triggerNewGroupMemberNotification:", err);
+                    });
+            }
+            router.push(`/groups/${data.groupId}`); // Mover o router.push para depois da lógica de notificação
         },
         onError: (error) => {
             console.error("Error accepting invite:", error);

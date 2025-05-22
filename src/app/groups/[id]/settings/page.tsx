@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useImageUpload } from "@/hooks/useImageUpload";
+import { triggerGroupUpdateNotification, triggerGroupDeletedNotification } from "@/app/notifications/actions";
 
 // Definir array de valores do SportType
 const sportTypeValues: SportType[] = [
@@ -95,11 +96,31 @@ export default function GroupSettingsPage() {
         if (!group?.id) throw new Error("ID do grupo não encontrado");
         return updateGroup(group.id, updates);
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       toast.success("Grupo atualizado com sucesso!");
       queryClient.invalidateQueries({ queryKey: ['groupDetails', groupId] });
       queryClient.invalidateQueries({ queryKey: ['userGroups'] });
       clearImageSelection();
+
+      const changedSummary: string[] = [];
+      if (variables.name !== undefined && variables.name !== group?.name) changedSummary.push("nome");
+      if (variables.description !== undefined && variables.description !== group?.description) changedSummary.push("descrição");
+      if (variables.image !== undefined && variables.image !== group?.image) changedSummary.push("imagem");
+      if (variables.sport !== undefined && variables.sport !== group?.sport) changedSummary.push("esporte");
+      
+      if (currentUser?.id && groupId && changedSummary.length > 0) {
+        triggerGroupUpdateNotification(groupId, currentUser.id, changedSummary)
+          .then(result => {
+            if (result?.error) {
+              console.warn("Falha ao disparar notificação de atualização de grupo:", result.error);
+            } else if (result?.success) {
+              console.log(`Notificação de atualização de grupo disparada para ${result.count} usuários.`);
+            }
+          })
+          .catch(err => {
+            console.error("Erro ao chamar triggerGroupUpdateNotification:", err);
+          });
+      }
     },
     onError: (error) => {
       toast.error(`Erro ao atualizar grupo: ${error.message}`);
@@ -110,8 +131,28 @@ export default function GroupSettingsPage() {
   });
 
   const deleteGroupMutation = useMutation({
-     mutationFn: () => {
-         if (!group?.id) throw new Error("ID do grupo não encontrado");
+     mutationFn: async () => {
+         if (!group?.id || !group.name) throw new Error("ID ou nome do grupo não encontrado para exclusão.");
+         
+         // Disparar notificação ANTES de deletar o grupo
+         if (currentUser?.id) {
+           try {
+             console.log(`Attempting to trigger deletion notification for group ${group.id} by user ${currentUser.id}`);
+             const notificationResult = await triggerGroupDeletedNotification(group.id, group.name, currentUser.id);
+             if (notificationResult?.error) {
+                console.warn("Falha ao disparar notificação de exclusão de grupo (controlado):", notificationResult.error);
+             } else if (notificationResult?.success) {
+                console.log(`Notificação de exclusão de grupo para ${group.name} disparada para ${notificationResult.count} usuários.`);
+             }
+           } catch (notificationError: unknown) {
+             let errorMessage = "Erro desconhecido ao notificar";
+             if (notificationError instanceof Error) {
+               errorMessage = notificationError.message;
+             }
+             console.warn("Erro não tratado ao disparar notificação de exclusão de grupo:", errorMessage);
+             // Não impedir a exclusão do grupo por falha na notificação, mas logar.
+           }
+         }
          return deleteGroup(group.id);
      },
      onSuccess: () => {
