@@ -54,44 +54,55 @@ async function removeInvalidToken(supabaseClient: SupabaseClient, userId: string
 }
 
 async function sendPushNotification(
-  projectId: string, // Adicionado projectId aqui
+  projectId: string, 
   accessToken: string,
-  fcmToken: string, // Alterado para um único token
-  title: string,
-  body: string,
-  data?: { [key: string]: string }
+  fcmToken: string, 
+  title: string, 
+  body: string,  
+  data: { [key: string]: string }
 ): Promise<{ token: string; status: 'success' | 'failure'; error?: any }> {
   const notificationPayload = {
     message: {
       token: fcmToken,
-      notification: {
-        title: title,
-        body: body,
+      data: {
+        title: title,         
+        body: body,           
+        icon: '/icons/icon-192x192.png', // Ícone padrão para a notificação, pode ser sobrescrito pelo SW se desejado
+        ...data             // Mescla outros dados como url, click_action
       },
-      data: data,
-      apns: {
+      // Configurações específicas de plataforma para otimizar a entrega e comportamento:
+      apns: { // Configurações para Apple Push Notification service (iOS)
         payload: {
           aps: {
-            sound: 'default',
-            badge: 1,
-          },
+            sound: 'default', // Som padrão para a notificação no iOS
+            badge: 1,         // Atualiza o badge no ícone do app iOS (normalmente para indicar 1 nova notificação)
+            // "content-available": 1 // Use para pushes silenciosos que acordam o app iOS em segundo plano para processar dados
+          }
         },
-      },
-      android: {
-        notification: {
-          sound: 'default',
+        headers: {
+          // 'apns-push-type': 'alert', // 'alert' para notificações visíveis, 'background' para content-available. Padrão é 'alert'.
+          'apns-priority': '10'     // Prioridade da notificação APNS: 10 para entrega imediata, 5 para entrega que economiza energia.
         }
       },
-      webpush: {
-        notification: {
-          icon: '/icons/icon-192x192.png',
+      android: { // Configurações para dispositivos Android
+        priority: 'high' // Prioridade da mensagem FCM para Android: 'high' ou 'normal'. 'high' tenta entregar imediatamente.
+        // ttl: '86400s', // Exemplo de Time To Live para a mensagem no Android
+        // notification: { // Removido para não haver conflito, pois o SW controla a notificação visual
+        //   channel_id: 'your_channel_id' // Se você usa canais de notificação no Android nativo
+        // }
+      },
+      webpush: { // Configurações para Web Push (PWAs em navegadores desktop e mobile)
+        headers: {
+          Urgency: 'high' // Urgência da mensagem Web Push: 'very-low', 'low', 'normal', ou 'high'.
+          // TTL: '86400' // Exemplo de Time To Live em segundos para Web Push
         },
         fcm_options: {
-          link: data?.click_action || '/',
-        },
+          // O link é uma conveniência para o FCM, mas o clique é melhor tratado no SW para PWAs.
+          link: data?.click_action || data?.url || '/' 
+        }
       }
     }
-  }
+  };
 
   try {
     const response = await fetch(FCM_API_URL_V1(projectId), {
@@ -101,23 +112,25 @@ async function sendPushNotification(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(notificationPayload),
-    })
+    });
 
     if (!response.ok) {
-      const errorBody = await response.json()
-      console.error(`FCM send error for token ${fcmToken}: ${response.status}`, JSON.stringify(errorBody, null, 2))
-      return { token: fcmToken, status: 'failure', error: errorBody }
+      const errorBody = await response.json();
+      console.error(`[${(data && data.requestId) || 'N/A'}] FCM send error for token ${fcmToken}: ${response.status}`, JSON.stringify(errorBody, null, 2));
+      return { token: fcmToken, status: 'failure', error: errorBody };
     }
-    // Sucesso no envio para este token
-    // console.log(`Successfully sent push notification to token ${fcmToken}. Response:`, await response.json()) // O response.json() aqui pode dar erro se já consumido
-    return { token: fcmToken, status: 'success' }
+    return { token: fcmToken, status: 'success' };
   } catch (error: any) {
-    console.error(`Exception during FCM send for token ${fcmToken}:`, error?.message, error)
-    return { token: fcmToken, status: 'failure', error: { message: error?.message || 'Network or unexpected error' } }
+    console.error(`[${(data && data.requestId) || 'N/A'}] Exception during FCM send for token ${fcmToken}:`, error?.message, error);
+    return { token: fcmToken, status: 'failure', error: { message: error?.message || 'Network or unexpected error' } };
   }
 }
 
 serve(async (req: Request) => {
+  // DEBUG: Log a unique ID for the request and timestamp
+  const requestId = crypto.randomUUID();
+  console.log(`[${requestId}] Received request at ${new Date().toISOString()}`);
+
   try {
     const serviceAccountJsonString = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON")
     if (!serviceAccountJsonString) {
@@ -142,10 +155,11 @@ serve(async (req: Request) => {
     const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey)
 
     const payload = await req.json()
-    // console.log('Received webhook payload:', JSON.stringify(payload, null, 2)) // Log verboso
+    // DEBUG: Log o payload completo recebido pela função
+    console.log(`[${requestId}] Received webhook payload:`, JSON.stringify(payload, null, 2));
 
     if (payload.type !== 'INSERT' || payload.table !== 'notifications') {
-      console.log('Not an insert on notifications table. Skipping.')
+      console.log(`[${requestId}] Not an insert on notifications table. Skipping.`);
       return new Response(JSON.stringify({ message: 'Skipping non-insert or non-notification event' }), { status: 200, headers: { 'Content-Type': 'application/json' } })
     }
 
@@ -157,6 +171,9 @@ serve(async (req: Request) => {
 
     const { user_id: userId, title, message, related_event_id, related_group_id } = notificationRecord
     // const notificationData = notificationRecord.data || { click_action: '/notifications' }
+
+    // DEBUG: Log o userId extraído
+    console.log(`[${requestId}] Processing notification for userId: ${userId}`);
 
     let targetUrl = '/notifications'; // Fallback URL
     if (related_event_id) {
@@ -176,8 +193,12 @@ serve(async (req: Request) => {
     };
 
     const fcmTokens = await getFcmTokens(supabaseClient, userId)
+
+    // DEBUG: Log os tokens FCM recuperados
+    console.log(`[${requestId}] Found ${fcmTokens.length} FCM token(s) for user ${userId}:`, JSON.stringify(fcmTokens));
+
     if (fcmTokens.length === 0) {
-      console.log(`No FCM tokens found for user ${userId}. Nothing to send.`)
+      console.log(`[${requestId}] No FCM tokens found for user ${userId}. Nothing to send.`)
       return new Response(JSON.stringify({ message: `No FCM tokens for user ${userId}` }), { status: 200, headers: { 'Content-Type': 'application/json' } })
     }
     // console.log(`Found ${fcmTokens.length} FCM token(s) for user ${userId}:`, fcmTokens) // Log verboso
@@ -198,6 +219,11 @@ serve(async (req: Request) => {
     const accessToken = accessTokenResponse as string
     // console.log('Successfully obtained Google Access Token.') // Log verboso
 
+    // DEBUG: Log antes de enviar para cada token
+    fcmTokens.forEach(token => {
+      console.log(`[${requestId}] Preparing to send notification to token: ${token} for user: ${userId}`);
+    });
+
     const sendPromises = fcmTokens.map(token => 
       sendPushNotification(projectId, accessToken, token, title, message, notificationDataForFcm)
     )
@@ -215,21 +241,22 @@ serve(async (req: Request) => {
           'NOT_FOUND' // 'Requested entity was not found.'
         ]
         if (errorCode && invalidTokenErrorCodes.includes(errorCode)) {
-           console.log(`Token ${result.token} is invalid due to ${errorCode}. Adding to removal list.`)
+           console.log(`[${requestId}] Token ${result.token} is invalid due to ${errorCode}. Adding to removal list.`)
            tokensToRemove.push(result.token)
         } else {
-          console.warn(`Failed to send to token ${result.token}. Error:`, JSON.stringify(fcmError))
+          console.warn(`[${requestId}] Failed to send to token ${result.token}. Error:`, JSON.stringify(fcmError))
         }
       } else if (result.status === 'success') {
-        console.log(`Successfully sent notification to token: ${result.token}`)
+        // DEBUG: Log de sucesso para um token específico
+        console.log(`[${requestId}] Successfully sent notification to token: ${result.token} for user: ${userId}`);
       }
     })
 
     if (tokensToRemove.length > 0) {
-      console.log('Removing invalid tokens:', tokensToRemove)
+      console.log(`[${requestId}] Removing invalid tokens:`, tokensToRemove)
       const removalPromises = tokensToRemove.map(token => removeInvalidToken(supabaseClient, userId, token))
       await Promise.all(removalPromises)
-      console.log('Finished removing invalid tokens.')
+      console.log(`[${requestId}] Finished removing invalid tokens.`)
     }
 
     return new Response(JSON.stringify({ success: true, message: 'Notifications processed.', results_summary: results.map(r => ({token: r.token, status: r.status, error: r.error ? (r.error.details ? r.error.details[0].errorCode : r.error.message) : null})) }), {
@@ -238,7 +265,8 @@ serve(async (req: Request) => {
     })
 
   } catch (error: any) {
-    console.error('Critical Error in Edge Function:', error?.message, error?.stack, error)
+    // DEBUG: Adicionar requestId ao log de erro crítico
+    console.error(`[${requestId}] Critical Error in Edge Function:`, error?.message, error?.stack, error)
     return new Response(
       JSON.stringify({ error: error?.message || 'Internal Server Error' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
