@@ -51,13 +51,13 @@ export default function NotificationsPage() {
         try {
             const success = await requestPermissionAndGetToken();
             if (success) {
-                toast.success("Notificações push habilitadas com sucesso!");
+                toast.success("Notificações ativadas! Agora você será avisado sobre novidades e lembretes importantes.");
             } else {
-                toast.error("Não foi possível habilitar as notificações. Verifique as configurações do seu navegador.");
+                toast.error("Não foi possível ativar as notificações. Veja as configurações do seu navegador.");
             }
         } catch (error) {
             console.error('Erro ao solicitar permissões de notificação:', error);
-            toast.error("Erro ao habilitar notificações push.");
+            toast.error("Erro ao ativar notificações.");
         }
     };
 
@@ -120,17 +120,17 @@ export default function NotificationsPage() {
                             <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                             <div className="flex-1">
                                 <h3 className="font-medium text-amber-800 dark:text-amber-200 mb-1">
-                                    Ative as notificações push
+                                    Ative as notificações do app
                                 </h3>
                                 <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
-                                    Receba notificações instantâneas sobre novos eventos e atualizações importantes, mesmo quando o app não estiver aberto.
+                                    Fique por dentro das novidades e lembretes importantes. Ative as notificações para receber alertas mesmo quando não estiver com o app aberto.
                                 </p>
                                 <Button 
                                     size="sm" 
                                     onClick={handleNotificationWarningClick}
                                     className="bg-amber-600 hover:bg-amber-700 text-white"
                                 >
-                                    Habilitar notificações push
+                                    Quero receber notificações
                                 </Button>
                             </div>
                         </div>
