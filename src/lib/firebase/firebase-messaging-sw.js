@@ -67,7 +67,7 @@ messaging.onBackgroundMessage((payload) => {
 
 self.addEventListener('install', () => {
   console.log('[SW] Service Worker instalado às:', new Date().toISOString());
-  self.skipWaiting(); // Garante que o novo SW ative rapidamente
+  // Removido self.skipWaiting() para evitar refresh automático
 });
 
 self.addEventListener('activate', event => {

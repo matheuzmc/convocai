@@ -4,7 +4,7 @@ const pwaConfig = {
   dest: 'public',
   sw: 'firebase-messaging-sw.js', // Nome do arquivo do service worker de saída em /public
   register: true,
-  skipWaiting: true,
+  skipWaiting: false,
   disable: process.env.NODE_ENV === 'development', // Desabilitar PWA em dev para evitar conflitos com HMR/Turbopack
   swSrc: 'src/lib/firebase/firebase-messaging-sw.js', // Aponta para o nosso service worker customizado
   exclude: [

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { BellRing, Sun } from "lucide-react";
+import { Sun, BellRing, AlertCircle } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { toast } from "sonner";
 
@@ -19,9 +19,11 @@ export default function SettingsPage() {
   const [mounted, setMounted] = useState(false);
 
   const { 
-    requestPermissionAndGetToken, 
     permissionStatus, 
-    fcmToken, 
+    isNotificationsEnabled,
+    isTokenActive,
+    enableNotifications,
+    disableNotifications,
     error: pushNotificationError
   } = usePushNotifications();
 
@@ -36,14 +38,6 @@ export default function SettingsPage() {
     }
   }, [pushNotificationError]);
 
-  useEffect(() => {
-    if (fcmToken && permissionStatus === 'granted') {
-      // Poderia mostrar um toast de sucesso aqui, mas pode ser verboso.
-      // console.log("Token FCM atualizado/registrado:", fcmToken);
-      // toast.success("Notificações Push ativadas!"); // Descomente se desejar feedback explícito
-    }
-  }, [fcmToken, permissionStatus]);
-
   const handleThemeToggle = (checked: boolean) => {
     setIsLightMode(checked);
     setTheme(checked ? "light" : "dark");
@@ -51,13 +45,24 @@ export default function SettingsPage() {
 
   const handlePushNotificationToggle = async (checked: boolean) => {
     if (checked) {
-      if (permissionStatus !== 'granted') {
-        await requestPermissionAndGetToken();
+      // Usuário está tentando ativar
+      const success = await enableNotifications();
+      if (success) {
+        toast.success("Notificações push ativadas!");
       } else {
-        console.log("Notificações push já estavam ativadas.");
+        toast.error("Não foi possível ativar as notificações. Verifique as configurações do seu navegador.");
       }
     } else {
-      toast.info("Para desativar completamente as notificações push, você precisa ajustar as permissões do site nas configurações do seu navegador.");
+      // Usuário está tentando desativar
+      const success = await disableNotifications();
+      if (success) {
+        toast.success("Notificações push desativadas!");
+        toast.info("Para desativar completamente, você pode ajustar as permissões do site nas configurações do navegador.", {
+          duration: 5000
+        });
+      } else {
+        toast.error("Não foi possível desativar as notificações.");
+      }
     }
   };
 
@@ -65,7 +70,9 @@ export default function SettingsPage() {
     return null;
   }
 
-  const arePushNotificationsEnabled = permissionStatus === 'granted';
+  // Determina o estado do switch
+  const isNotificationSwitchEnabled = isNotificationsEnabled && isTokenActive;
+  const isNotificationSwitchDisabled = permissionStatus === 'denied';
 
   return (
     <MobileLayout
@@ -112,11 +119,33 @@ export default function SettingsPage() {
               </div>
               <Switch 
                 id="notifications-push-toggle" 
-                checked={arePushNotificationsEnabled}
+                checked={isNotificationSwitchEnabled}
                 onCheckedChange={handlePushNotificationToggle}
-                disabled={permissionStatus === 'denied'}
+                disabled={isNotificationSwitchDisabled}
               />
             </div>
+
+            {/* Mensagem informativa quando permissão foi negada */}
+            {permissionStatus === 'denied' && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-amber-800 dark:text-amber-200">
+                  <p className="font-medium">Notificações bloqueadas</p>
+                  <p>As notificações foram bloqueadas nas configurações do navegador. Para ativá-las, clique no ícone de cadeado/informações na barra de endereços e permita notificações.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Mensagem informativa quando permissão foi concedida mas token não está ativo */}
+            {permissionStatus === 'granted' && !isTokenActive && (
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-medium">Notificações desativadas</p>
+                  <p>Você tem permissão para receber notificações, mas elas estão desativadas. Use o switch acima para reativá-las.</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
