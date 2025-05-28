@@ -31,6 +31,7 @@ export function TopNav({
   const { data: currentUser, isLoading: isLoadingUser } = useCurrentUser();
   const { unreadCount, isLoading: isLoadingNotificationsContext } = useNotifications();
 
+  // O sino sempre aparece para usuários logados quando showNotifications é true
   const shouldShowBellIcon = showNotifications && currentUser && !isLoadingUser;
 
   return (
@@ -73,6 +74,7 @@ export function TopNav({
         </motion.h1>
       </div>
       <div className="flex items-center gap-4">
+        {/* Ícone de sino - sempre aparece para usuários logados quando showNotifications é true */}
         {shouldShowBellIcon && (
           <Link href="/notifications" className="relative top-0.5">
             <motion.div
@@ -95,6 +97,7 @@ export function TopNav({
             </motion.div>
           </Link>
         )}
+
         {rightElement}
         
         {/* User Avatar Area */}

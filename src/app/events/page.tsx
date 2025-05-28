@@ -83,7 +83,7 @@ const EventsPage: React.FC = () => {
           <Skeleton className="h-10 w-48 mb-4" />
           <Separator className="mb-4" />
           {/* Skeleton for Event List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+          <div className="grid grid-cols-1 gap-4 mt-4">
             {[...Array(3)].map((_, index) => (
               <Skeleton key={index} className="h-40 w-full" />
             ))}
@@ -102,7 +102,7 @@ const EventsPage: React.FC = () => {
      // Show skeletons within the tab if this specific list is loading
      if (isLoading) { 
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+        <div className="grid grid-cols-1 gap-4 mt-4">
           {[...Array(3)].map((_, index) => (
             <Skeleton key={index} className="h-40 w-full" />
           ))}
@@ -139,7 +139,7 @@ const EventsPage: React.FC = () => {
     }
     // Render event cards
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+      <div className="grid grid-cols-1 gap-4 mt-4">
          {events.map((event) => (
           <EventCard 
             key={event.id}

@@ -34,7 +34,7 @@ export default function HelpPage() {
     },
     {
       question: "Como alterar as configurações de notificação?",
-      answer: "Acesse o menu, vá em 'Configurações' e na seção 'Notificações' você pode personalizar como deseja receber os alertas."
+      answer: "Acesse o menu, vá em 'Configurações' e na seção 'Notificações' você pode escolher se quer receber notificações sobre novidades e lembretes importantes."
     },
   ];
 

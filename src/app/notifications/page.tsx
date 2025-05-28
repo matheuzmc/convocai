@@ -7,9 +7,10 @@ import { BottomNav } from '@/components/navigation/BottomNav';
 import { NotificationCard } from '@/components/cards/NotificationMemberCards';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MailCheck, Loader2 } from 'lucide-react';
+import { MailCheck, Loader2, AlertTriangle } from 'lucide-react';
 import { toast } from "sonner";
 import { useNotifications } from "@/contexts/NotificationsContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function NotificationsPage() {
@@ -24,6 +25,12 @@ export default function NotificationsPage() {
         hasMore,
         isLoadingMore,
     } = useNotifications();
+
+    const { 
+        isNotificationsEnabled, 
+        requestPermissionAndGetToken, 
+        permissionStatus 
+    } = usePushNotifications();
 
     useEffect(() => {
         if (unreadCount > 0) {
@@ -40,7 +47,24 @@ export default function NotificationsPage() {
         }
     }
 
+    const handleNotificationWarningClick = async () => {
+        try {
+            const success = await requestPermissionAndGetToken();
+            if (success) {
+                toast.success("Notificações ativadas! Agora você será avisado sobre novidades e lembretes importantes.");
+            } else {
+                toast.error("Não foi possível ativar as notificações. Veja as configurações do seu navegador.");
+            }
+        } catch (error) {
+            console.error('Erro ao solicitar permissões de notificação:', error);
+            toast.error("Erro ao ativar notificações.");
+        }
+    };
+
     const hasUnread = notifications.some(n => !n.isRead);
+
+    // Determina se deve mostrar o warning de push notifications
+    const shouldShowPushWarning = !isNotificationsEnabled && permissionStatus === 'default';
 
     if (isLoading && notifications.length === 0) {
         return (
@@ -66,19 +90,20 @@ export default function NotificationsPage() {
             <div className="p-4">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-semibold">Notificações</h1>
+                    {/* Botão de marcar todas como lidas */}
                     {notifications.length > 0 && (
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                    <Button 
+                                    <Button 
                                         variant="ghost" 
-                        size="sm"
+                                        size="sm"
                                         onClick={handleManualMarkAllRead}
                                         disabled={!hasUnread}
-                    >
-                            <MailCheck className="h-4 w-4 mr-2" />
+                                    >
+                                        <MailCheck className="h-4 w-4 mr-2" />
                                         Marcar todas como lidas
-                    </Button>
+                                    </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
                                     <p>Marcar todas as notificações como lidas.</p>
@@ -87,6 +112,30 @@ export default function NotificationsPage() {
                         </TooltipProvider>
                     )}
                 </div>
+
+                {/* Banner informativo sobre push notifications */}
+                {shouldShowPushWarning && (
+                    <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                        <div className="flex items-start gap-3">
+                            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                                <h3 className="font-medium text-amber-800 dark:text-amber-200 mb-1">
+                                    Ative as notificações do app
+                                </h3>
+                                <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+                                    Fique por dentro das novidades e lembretes importantes. Ative as notificações para receber alertas mesmo quando não estiver com o app aberto.
+                                </p>
+                                <Button 
+                                    size="sm" 
+                                    onClick={handleNotificationWarningClick}
+                                    className="bg-amber-600 hover:bg-amber-700 text-white"
+                                >
+                                    Quero receber notificações
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {error && (
                     <div className="text-center text-destructive py-10">

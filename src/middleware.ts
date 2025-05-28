@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -56,8 +58,6 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { pathname } = request.nextUrl
-
   // Define public routes (accessible without login)
   const publicRoutes = ['/login', '/register']
   // Define authentication routes (login/signup/register)
@@ -81,9 +81,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  // Refresh the session cookie if needed
-  // await supabase.auth.getSession() // This line might be needed depending on session handling needs
-
   return response
 }
 
@@ -101,7 +98,9 @@ export const config = {
      * - icons (PWA icons folder)
      * - auth/callback (Supabase auth callback)
      * - firebase-messaging-sw.js (Firebase Service Worker)
+     * - sw.js (Service Worker)
+     * - workbox-*.js (Workbox files)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|manifest\.json|images|icons|auth/callback|firebase-messaging-sw\\.js).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|manifest\.json|images|icons|auth/callback|firebase-messaging-sw\\.js|sw\\.js|workbox-.*\\.js).*)',
   ],
 } 
