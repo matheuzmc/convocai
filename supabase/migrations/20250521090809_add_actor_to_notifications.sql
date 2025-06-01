@@ -1,0 +1,2 @@
+ALTER TABLE public.notifications ADD COLUMN actor_user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
+COMMENT ON COLUMN public.notifications.actor_user_id IS 'ID of the user who performed the action that triggered the notification.'; 

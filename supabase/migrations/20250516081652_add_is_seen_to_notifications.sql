@@ -1,0 +1,2 @@
+ALTER TABLE public.notifications
+ADD COLUMN is_seen BOOLEAN DEFAULT FALSE NOT NULL; 
