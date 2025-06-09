@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      announcement_read_receipts: {
+        Row: {
+          announcement_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          announcement_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          announcement_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_read_receipts_announcement_id_fkey"
+            columns: ["announcement_id"]
+            isOneToOne: false
+            referencedRelation: "group_announcements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcement_read_receipts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_attendees: {
         Row: {
           event_id: string
@@ -91,6 +124,51 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "events_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_announcements: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          group_id: string
+          id: string
+          is_pinned: boolean
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          group_id: string
+          id?: string
+          is_pinned?: boolean
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          group_id?: string
+          id?: string
+          is_pinned?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_announcements_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
@@ -235,6 +313,7 @@ export type Database = {
       }
       notifications: {
         Row: {
+          actor_user_id: string | null
           created_at: string
           id: string
           is_read: boolean
@@ -247,6 +326,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          actor_user_id?: string | null
           created_at?: string
           id?: string
           is_read?: boolean
@@ -259,6 +339,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          actor_user_id?: string | null
           created_at?: string
           id?: string
           is_read?: boolean
@@ -271,6 +352,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "notifications_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notifications_related_event_id_fkey"
             columns: ["related_event_id"]
@@ -346,6 +434,22 @@ export type Database = {
         Args: { _event_id: string }
         Returns: Json
       }
+      get_group_announcements_with_read_status: {
+        Args: { p_group_id: string } | { p_group_id: string; p_user_id: string }
+        Returns: {
+          id: string
+          group_id: string
+          created_by_user_id: string
+          content: string
+          is_pinned: boolean
+          created_at: string
+          updated_at: string
+          creator_profile_id: string
+          creator_profile_name: string
+          creator_profile_avatar_url: string
+          current_user_has_read: boolean
+        }[]
+      }
       is_group_admin: {
         Args: { p_group_id: string } | { p_group_id: string; p_user_id: string }
         Returns: boolean
@@ -362,7 +466,12 @@ export type Database = {
     Enums: {
       event_attendee_status: "confirmed" | "declined" | "pending"
       event_frequency: "weekly" | "biweekly" | "monthly"
-      notification_type: "info" | "success" | "warning" | "error"
+      notification_type:
+        | "info"
+        | "success"
+        | "warning"
+        | "error"
+        | "announcement"
       sport_type:
         | "futebol"
         | "basquete"
@@ -492,7 +601,13 @@ export const Constants = {
     Enums: {
       event_attendee_status: ["confirmed", "declined", "pending"],
       event_frequency: ["weekly", "biweekly", "monthly"],
-      notification_type: ["info", "success", "warning", "error"],
+      notification_type: [
+        "info",
+        "success",
+        "warning",
+        "error",
+        "announcement",
+      ],
       sport_type: [
         "futebol",
         "basquete",

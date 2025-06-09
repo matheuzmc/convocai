@@ -5,7 +5,7 @@ import { MobileLayout } from "@/components/layout/MobileLayout";
 import { TopNav } from "@/components/navigation/TopNav";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Users, Settings, UserPlus, AlertTriangle, Loader2, MoreVertical, LogOut } from "lucide-react";
+import { Users, Settings, UserPlus, AlertTriangle, Loader2, MoreVertical, LogOut, Info } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { GroupTabs, InviteDialog } from "@/components/ui-elements/DialogsAndTabs";
@@ -35,6 +35,10 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Terminal } from "lucide-react"
+import type { GroupAnnouncement } from "@/lib/types";
+import { deleteGroupAnnouncement as deleteAnnouncementServiceFn, togglePinAnnouncement as togglePinAnnouncementServiceFn } from "@/services/announcementService";
+import { AnnouncementFormModal } from "@/components/modals/AnnouncementFormModal";
+import { AnnouncementViewersModal } from "@/components/modals/AnnouncementViewersModal";
 
 export default function GroupDetailsPage() {
   const params = useParams();
@@ -50,6 +54,16 @@ export default function GroupDetailsPage() {
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null);
 
   const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
+
+  // --- Estados para o Modal de Aviso ---
+  const [isAnnouncementModalOpen, setIsAnnouncementModalOpen] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<GroupAnnouncement | null>(null);
+  // -------------------------------------
+
+  // --- Estados para o Modal de Visualizadores de Aviso ---
+  const [isViewersModalOpen, setIsViewersModalOpen] = useState(false);
+  const [viewingAnnouncement, setViewingAnnouncement] = useState<GroupAnnouncement | null>(null);
+  // ------------------------------------------------------
 
   useEffect(() => {
     const getUser = async () => {
@@ -140,6 +154,32 @@ export default function GroupDetailsPage() {
     leaveGroupMutation.mutate();
   };
 
+  const deleteAnnouncementMutation = useMutation({
+    mutationFn: (announcementId: string) => deleteAnnouncementServiceFn(announcementId),
+    onSuccess: () => {
+      toast.success("Aviso deletado com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ['groupAnnouncements', groupId] });
+    },
+    onError: (error: Error) => {
+      console.error("Error deleting announcement:", error);
+      toast.error(`Erro ao deletar aviso: ${error.message}`);
+    }
+  });
+
+  const togglePinAnnouncementMutation = useMutation({
+    mutationFn: ({ announcementId, currentPinStatus }: { announcementId: string; currentPinStatus: boolean }) => 
+      togglePinAnnouncementServiceFn(announcementId, currentPinStatus),
+    onSuccess: (data, variables) => {
+      toast.success(variables.currentPinStatus ? "Aviso desafixado!" : "Aviso fixado!");
+      queryClient.invalidateQueries({ queryKey: ['groupAnnouncements', groupId] });
+    },
+    onError: (error: Error, variables) => {
+      console.error("Error toggling pin status:", error);
+      const actionText = variables.currentPinStatus ? "desafixar" : "fixar";
+      toast.error(`Erro ao ${actionText} aviso: ${error.message}`);
+    }
+  });
+
   if (isLoading) {
     return (
       <MobileLayout
@@ -154,6 +194,7 @@ export default function GroupDetailsPage() {
                  <Skeleton className="h-5 w-16" />
               </div>
               <div className="flex gap-2">
+                 <Skeleton className="h-9 w-9" />
                  <Skeleton className="h-9 w-9" />
                  <Skeleton className="h-9 w-9" />
               </div>
@@ -174,6 +215,7 @@ export default function GroupDetailsPage() {
         <div className="p-4 text-center text-destructive">
           <AlertTriangle className="mx-auto h-8 w-8 mb-2"/>
           Erro ao carregar detalhes do grupo.
+          {groupDetailsError && <p className="text-sm">{groupDetailsError.message}</p>}
         </div>
       </MobileLayout>
     );
@@ -191,6 +233,33 @@ export default function GroupDetailsPage() {
   }
   
   const baseInviteLink = typeof window !== 'undefined' ? `${window.location.origin}/groups/join` : '';
+
+  // --- Handlers para o Modal de Avisos ---
+  const handleOpenCreateAnnouncementModal = () => {
+    setEditingAnnouncement(null); // Garante que está no modo de criação
+    setIsAnnouncementModalOpen(true);
+  };
+
+  const handleOpenEditAnnouncementModal = (announcement: GroupAnnouncement) => {
+    setEditingAnnouncement(announcement);
+    setIsAnnouncementModalOpen(true);
+  };
+
+  const handleOpenViewersModal = (announcement: GroupAnnouncement) => {
+    setViewingAnnouncement(announcement);
+    setIsViewersModalOpen(true);
+  };
+
+  const handleDeleteAnnouncement = (announcementId: string) => {
+    if (window.confirm("Tem certeza que deseja deletar este aviso? Esta ação não pode ser desfeita.")) {
+      deleteAnnouncementMutation.mutate(announcementId);
+    }
+  };
+
+  const handleTogglePinAnnouncement = (announcementId: string, currentPinStatus: boolean) => {
+    togglePinAnnouncementMutation.mutate({ announcementId, currentPinStatus });
+  };
+  // --------------------------------------
 
   return (
     <MobileLayout
@@ -218,9 +287,20 @@ export default function GroupDetailsPage() {
           <div className="absolute inset-0 bg-gradient-to-t to-transparent dark:from-black/30 dark:via-black/10 dark:to-transparent"></div>
         </div>
 
-        <h1 className="text-2xl font-bold leading-tight break-words text-center my-4">
+        <div className="flex items-center justify-center text-center my-4 relative">
+          <h1 className="text-2xl font-bold leading-tight break-words">
           {group.name}
         </h1>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="ml-2 text-muted-foreground hover:text-foreground" 
+            onClick={() => console.log("TODO: Abrir modal de informações do grupo")}
+            title="Sobre o grupo"
+          >
+            <Info className="h-5 w-5" />
+          </Button>
+        </div>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -339,7 +419,11 @@ export default function GroupDetailsPage() {
           groupId={groupId}
           isAdmin={isAdmin}
           groupName={group.name}
-          description={group.description ?? 'Sem informações cadastradas.'}
+          onOpenCreateAnnouncementModal={handleOpenCreateAnnouncementModal}
+          onOpenViewersModal={handleOpenViewersModal}
+          onEditAnnouncement={handleOpenEditAnnouncementModal}
+          onDeleteAnnouncement={handleDeleteAnnouncement}
+          onTogglePin={handleTogglePinAnnouncement}
         />
       </div>
 
@@ -348,6 +432,23 @@ export default function GroupDetailsPage() {
         onOpenChange={setInviteDialogOpen}
         groupName={group.name} 
         inviteLink={generatedInviteLink ?? baseInviteLink} 
+      />
+
+      {/* Modal de Formulário de Aviso */}
+      {group && (
+        <AnnouncementFormModal
+          isOpen={isAnnouncementModalOpen}
+          onOpenChange={setIsAnnouncementModalOpen}
+          groupId={groupId}
+          currentAnnouncement={editingAnnouncement}
+        />
+      )}
+
+      {/* Modal de Visualizadores de Aviso */}
+      <AnnouncementViewersModal
+        isOpen={isViewersModalOpen}
+        onOpenChange={setIsViewersModalOpen}
+        announcement={viewingAnnouncement}
       />
     </MobileLayout>
   );

@@ -106,3 +106,40 @@ export interface UserProfileData {
   sport_preferences: { sport: SportType; position: string }[] | null;
   phone_number: string | null; // Manter snake_case para consistência com DB?
 } 
+
+// --- Tipos para a Funcionalidade de Avisos do Grupo ---
+
+// Interface mínima para informações de perfil, usada em created_by e viewers
+// Adapte ou reutilize se já existir uma interface similar no seu projeto.
+export interface ProfileMin {
+  id: string;
+  name: string | null;
+  avatar_url: string | null;
+  // Considere adicionar nickname se for relevante e disponível
+  // nickname?: string | null;
+}
+
+export type GroupAnnouncement = {
+  id: string;
+  group_id: string;
+  created_by_user_id: string;
+  created_by_profile: ProfileMin | null; // Perfil do criador
+  content: string;
+  is_pinned: boolean;
+  created_at: string; 
+  updated_at: string;
+  currentUserHasRead?: boolean; // Adicionado para o status de leitura
+};
+
+export type AnnouncementViewer = {
+  user_id: string;
+  profile: ProfileMin | null; // Perfil populado de quem visualizou
+  read_at: string; // Formato ISO string date
+};
+
+// Usado para formulários de criação/edição de avisos
+export interface GroupAnnouncementFormData {
+  content: string;
+  is_pinned?: boolean;
+}
+// --- Fim dos Tipos para Avisos do Grupo --- 

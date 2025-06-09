@@ -111,41 +111,6 @@ export function usePushNotifications() {
     }
   }, []);
 
-  const requestPermissionAndGetToken = useCallback(async () => {
-    if (!VAPID_KEY) {
-      console.error('Chave VAPID do Firebase não configurada. Verifique NEXT_PUBLIC_FIREBASE_VAPID_KEY.');
-      setError(new Error('Configuração de notificação incompleta.'));
-      return false;
-    }
-    if (!authUser) {
-      console.warn('Usuário não autenticado. Token FCM não será solicitado/salvo.');
-      setError(new Error('Usuário não autenticado.'));
-      return false;
-    }
-
-    let currentPermission = permissionStatus;
-    if (currentPermission !== 'granted' && currentPermission !== 'denied') {
-        try {
-            currentPermission = await Notification.requestPermission();
-            setPermissionStatus(currentPermission);
-            setIsNotificationsEnabled(currentPermission === 'granted');
-        } catch (err) {
-            console.error('Erro ao solicitar permissão de notificação:', err);
-            setError(err as Error);
-            return false;
-        }
-    }
-
-    if (currentPermission === 'granted') {
-      await retrieveToken();
-      return true;
-    } else {
-      console.warn('Permissão de notificação não concedida.', currentPermission);
-      setError(new Error(`Permissão de notificação não concedida: ${currentPermission}` ));
-      return false;
-    }
-  }, [VAPID_KEY, authUser, permissionStatus]);
-
   const retrieveToken = useCallback(async () => {
     if (!VAPID_KEY) {
         console.error('Chave VAPID do Firebase não configurada.');
@@ -200,6 +165,41 @@ export function usePushNotifications() {
       setError(err as Error);
     }
   }, [authUser]);
+
+  const requestPermissionAndGetToken = useCallback(async () => {
+    if (!VAPID_KEY) {
+      console.error('Chave VAPID do Firebase não configurada. Verifique NEXT_PUBLIC_FIREBASE_VAPID_KEY.');
+      setError(new Error('Configuração de notificação incompleta.'));
+      return false;
+    }
+    if (!authUser) {
+      console.warn('Usuário não autenticado. Token FCM não será solicitado/salvo.');
+      setError(new Error('Usuário não autenticado.'));
+      return false;
+    }
+
+    let currentPermission = permissionStatus;
+    if (currentPermission !== 'granted' && currentPermission !== 'denied') {
+        try {
+            currentPermission = await Notification.requestPermission();
+            setPermissionStatus(currentPermission);
+            setIsNotificationsEnabled(currentPermission === 'granted');
+        } catch (err) {
+            console.error('Erro ao solicitar permissão de notificação:', err);
+            setError(err as Error);
+            return false;
+        }
+    }
+
+    if (currentPermission === 'granted') {
+      await retrieveToken();
+      return true;
+    } else {
+      console.warn('Permissão de notificação não concedida.', currentPermission);
+      setError(new Error(`Permissão de notificação não concedida: ${currentPermission}` ));
+      return false;
+    }
+  }, [authUser, permissionStatus, retrieveToken]);
 
   // Função para "desativar" notificações (remove token do backend)
   const disableNotifications = useCallback(async () => {

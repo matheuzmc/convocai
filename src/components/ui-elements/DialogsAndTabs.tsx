@@ -10,8 +10,9 @@ import Link from "next/link";
 import { EventCard } from "@/components/cards/GroupEventCards";
 import { MemberCard } from "@/components/cards/NotificationMemberCards";
 import { Event as EventType } from "@/lib/types";
-import { GroupMemberWithProfile } from "@/lib/types";
+import { GroupMemberWithProfile, GroupAnnouncement } from "@/lib/types";
 import { toast } from "sonner";
+import { AnnouncementsTabContent } from "@/components/group-details/AnnouncementsTabContent";
 
 // Placeholder function (replace with actual data fetching if needed)
 /* // Removed unused placeholder function
@@ -229,17 +230,24 @@ export function GroupTabs({
   groupId = "", 
   isAdmin = false,
   groupName = "Grupo",
-  description = "Descrição não fornecida"
+  onOpenCreateAnnouncementModal,
+  onOpenViewersModal,
+  onEditAnnouncement,
+  onDeleteAnnouncement,
+  onTogglePin
 }: { 
   events?: EventType[],
   members?: GroupMemberWithProfile[],
   groupId?: string,
   isAdmin?: boolean,
   groupName?: string,
-  description?: string
+  onOpenCreateAnnouncementModal: () => void;
+  onOpenViewersModal: (announcement: GroupAnnouncement) => void;
+  onEditAnnouncement: (announcement: GroupAnnouncement) => void;
+  onDeleteAnnouncement: (announcementId: string) => void;
+  onTogglePin: (announcementId: string, currentPinStatus: boolean) => void;
 }) {
   const [historyDialogOpen, setHistoryDialogOpen] = React.useState(false);
-  const [inviteDialogOpen, setInviteDialogOpen] = React.useState(false);
   
   // TODO: Fetch group details if needed, e.g., for invite link generation
   // const group = getGroupById(groupId);
@@ -302,17 +310,9 @@ export function GroupTabs({
       <Tabs defaultValue="events" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="events">Eventos</TabsTrigger>
-          <TabsTrigger value="about">Sobre</TabsTrigger>
+          <TabsTrigger value="announcements">Avisos</TabsTrigger>
           <TabsTrigger value="members">Membros</TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="about" className="mt-4 space-y-4">
-          <div className="space-y-2 w-full">
-            <p className="text-muted-foreground text-sm whitespace-pre-wrap break-words w-full">
-              {description}
-            </p>
-          </div>
-        </TabsContent>
         
         <TabsContent value="events" className="mt-4 space-y-4">
           <div className="flex items-start justify-between">
@@ -400,6 +400,18 @@ export function GroupTabs({
             )}
           </div>
         </TabsContent>
+
+        <TabsContent value="announcements" className="mt-4">
+          <AnnouncementsTabContent 
+            groupId={groupId} 
+            isAdmin={isAdmin}
+            onOpenCreateAnnouncementModal={onOpenCreateAnnouncementModal}
+            onOpenViewersModal={onOpenViewersModal}
+            onEditAnnouncement={onEditAnnouncement}
+            onDeleteAnnouncement={onDeleteAnnouncement}
+            onTogglePin={onTogglePin}
+          />
+        </TabsContent>
       </Tabs>
 
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
@@ -432,8 +444,8 @@ export function GroupTabs({
 
       {groupId && (
         <InviteDialog
-          open={inviteDialogOpen}
-          onOpenChange={setInviteDialogOpen}
+          open={false}
+          onOpenChange={() => {}}
           groupName={groupName}
           inviteLink={inviteLink}
         />
