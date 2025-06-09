@@ -155,7 +155,6 @@ serve(async (req: Request) => {
     const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey)
 
     const payload = await req.json()
-    // DEBUG: Log o payload completo recebido pela função
     console.log(`[${requestId}] Received webhook payload:`, JSON.stringify(payload, null, 2));
 
     if (payload.type !== 'INSERT' || payload.table !== 'notifications') {
@@ -164,32 +163,28 @@ serve(async (req: Request) => {
     }
 
     const notificationRecord = payload.record
-    if (!notificationRecord || !notificationRecord.user_id || !notificationRecord.title || !notificationRecord.message) {
-      console.error('Invalid notification record data:', notificationRecord)
-      return new Response(JSON.stringify({ error: 'Missing required fields in notification record (user_id, title, message).' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+    if (!notificationRecord || !notificationRecord.user_id || !notificationRecord.title || !notificationRecord.body) {
+      console.error('Invalid notification record data (missing body):', notificationRecord)
+      return new Response(JSON.stringify({ error: 'Missing required fields in notification record (user_id, title, body).' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
     }
 
-    const { user_id: userId, title, message, related_event_id, related_group_id } = notificationRecord
-    // const notificationData = notificationRecord.data || { click_action: '/notifications' }
+    const { user_id: userId, title, body, related_event_id, related_group_id } = notificationRecord
+    const notificationBody = body || ""; // Garantir que notificationBody é uma string
 
-    // DEBUG: Log o userId extraído
     console.log(`[${requestId}] Processing notification for userId: ${userId}`);
 
-    let targetUrl = '/notifications'; // Fallback URL
-    if (related_event_id) {
-      targetUrl = `/events/${related_event_id}`;
-    } else if (related_group_id) {
-      targetUrl = `/groups/${related_group_id}`;
-    }
+    // Refinar lógica de click_action/url
+    const specificData = notificationRecord.data || {};
+    const clickAction = specificData.click_action || 
+                        specificData.url || // Fallback para url se click_action não estiver em data
+                        (related_event_id ? `/events/${related_event_id}` : 
+                          (related_group_id ? `/groups/${related_group_id}?tab=announcements` : '/notifications')); // Adiciona ?tab=announcements para grupos
+                          // Se announcement_id estiver em specificData, o click_action já será mais específico.
 
-    // O Service Worker (public/firebase-messaging-sw.js) espera event.notification.data.url
-    // O webpush.fcm_options.link também usará esta URL.
     const notificationDataForFcm = {
-      // Preserva quaisquer outros dados que possam estar em notificationRecord.data no futuro,
-      // embora a tabela 'notifications' atualmente não tenha uma coluna 'data'.
-      ...(notificationRecord.data || {}), 
-      url: targetUrl,
-      click_action: targetUrl // Manter para consistência e para o fcm_options.link
+      ...specificData, 
+      url: clickAction,        
+      click_action: clickAction 
     };
 
     const fcmTokens = await getFcmTokens(supabaseClient, userId)
@@ -225,7 +220,7 @@ serve(async (req: Request) => {
     });
 
     const sendPromises = fcmTokens.map(token => 
-      sendPushNotification(projectId, accessToken, token, title, message, notificationDataForFcm)
+      sendPushNotification(projectId, accessToken, token, title, notificationBody, notificationDataForFcm)
     )
     const results = await Promise.all(sendPromises)
     // console.log('FCM send results:', JSON.stringify(results, null, 2)) // Log verboso
